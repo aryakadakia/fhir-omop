@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from fhir_omop.references import resolve as resolve_reference
 from fhir_omop.vocab import (
     NO_MATCHING_CONCEPT,
     concept_domain,
@@ -100,13 +101,8 @@ def _first_coding(concept: dict | None):
 
 
 def reference_id(node: dict | None) -> str | None:
-    ref = (node or {}).get("reference")
-    if not ref:
-        return None
-    for prefix in ("urn:uuid:", "Patient/", "Encounter/"):
-        if ref.startswith(prefix):
-            return ref[len(prefix):]
-    return ref
+    """Extract the referenced resource id from any FHIR Reference."""
+    return resolve_reference(node)
 
 
 def map_observation(con, obs: dict, row_id: int, person_id: int,

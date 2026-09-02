@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 from fhir_omop.vocab import (
     NO_MATCHING_CONCEPT,
+    concept_domain,
     omop_vocabulary_for,
     resolve_to_standard,
 )
@@ -98,6 +99,20 @@ def map_medication_request(con, request: dict, drug_exposure_id: int,
         source_concept_id = resolution.source_concept_id
         if resolution.note:
             issues.append(resolution.note)
+
+        # Domain check, for the same reason Condition and Observation have one:
+        # RxNorm does not resolve exclusively into the Drug domain. A concept
+        # from another domain in drug_concept_id would corrupt every drug
+        # analysis, so it is refused rather than written. The source concept is
+        # preserved so nothing is lost and the case can be reviewed.
+        if resolution.mapped:
+            domain = concept_domain(con, concept_id)
+            if domain != "Drug":
+                issues.append(
+                    f"concept {concept_id} is domain {domain!r}, not Drug; "
+                    "drug_concept_id set to 0"
+                )
+                concept_id = NO_MATCHING_CONCEPT
 
     # drug_exposure_end_date is NOT NULL. Synthea supplies no dispense duration
     # here, so the order date is used for both ends. This UNDERSTATES exposure

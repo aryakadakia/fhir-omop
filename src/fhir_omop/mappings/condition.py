@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from fhir_omop.references import resolve as resolve_reference
 from fhir_omop.vocab import (
     NO_MATCHING_CONCEPT,
     concept_domain,
@@ -136,19 +137,8 @@ def _date_part(value: str | None) -> str | None:
 
 
 def subject_id(condition: dict) -> str | None:
-    """Extract the referenced Patient id from Condition.subject.
-
-    Synthea writes intra-bundle references as `urn:uuid:<id>`; a live FHIR
-    server writes `Patient/<id>`. Both forms appear in the wild.
-    """
-    reference = (condition.get("subject") or {}).get("reference")
-    if not reference:
-        return None
-    if reference.startswith("urn:uuid:"):
-        return reference[len("urn:uuid:"):]
-    if reference.startswith("Patient/"):
-        return reference[len("Patient/"):]
-    return reference
+    """Extract the referenced Patient id from Condition.subject."""
+    return resolve_reference(condition.get("subject"))
 
 
 def map_condition(

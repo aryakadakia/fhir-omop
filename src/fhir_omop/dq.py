@@ -180,6 +180,44 @@ CHECKS: list[Check] = [
         "WHERE m.visit_occurrence_id IS NOT NULL AND v.visit_occurrence_id IS NULL",
     ),
     Check(
+        "drug_concept_in_drug_domain",
+        "conformance",
+        "drug_concept_id must be a Drug-domain concept (or 0)",
+        "SELECT count(*) FROM drug_exposure d JOIN concept c "
+        "ON c.concept_id = d.drug_concept_id "
+        "WHERE d.drug_concept_id <> 0 AND c.domain_id <> 'Drug'",
+    ),
+    Check(
+        "observation_concept_in_observation_domain",
+        "conformance",
+        "observation_concept_id must be an Observation-domain concept (or 0)",
+        "SELECT count(*) FROM observation o JOIN concept c "
+        "ON c.concept_id = o.observation_concept_id "
+        "WHERE o.observation_concept_id <> 0 AND c.domain_id <> 'Observation'",
+    ),
+    Check(
+        "all_event_concepts_are_standard",
+        "conformance",
+        "every non-zero event concept_id must be a standard concept",
+        """
+        SELECT count(*) FROM (
+          SELECT measurement_concept_id AS cid FROM measurement
+          UNION ALL SELECT observation_concept_id FROM observation
+          UNION ALL SELECT drug_concept_id FROM drug_exposure
+          UNION ALL SELECT condition_concept_id FROM condition_occurrence
+        ) e JOIN concept c ON c.concept_id = e.cid
+        WHERE e.cid <> 0 AND c.standard_concept IS DISTINCT FROM 'S'
+        """,
+    ),
+    Check(
+        "visit_fk_resolves_conditions",
+        "conformance",
+        "condition_occurrence.visit_occurrence_id must resolve when present",
+        "SELECT count(*) FROM condition_occurrence co LEFT JOIN visit_occurrence v "
+        "ON v.visit_occurrence_id = co.visit_occurrence_id "
+        "WHERE co.visit_occurrence_id IS NOT NULL AND v.visit_occurrence_id IS NULL",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",
