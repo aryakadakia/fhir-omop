@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Load a full OHDSI Athena vocabulary bundle into a DuckDB database.
 
-Athena (https://athena.ohdsi.org/) requires a free account, and some
-vocabularies (CPT4, and anything UMLS-derived) additionally require a personal
-UMLS licence. The download cannot be automated -- you select vocabularies in
-the browser and receive a zip of tab-delimited CSVs.
+Athena (https://athena.ohdsi.org/) requires its own free account -- separate
+from, and unrelated to, a UMLS licence. The download cannot be automated: you
+select vocabularies in the browser and receive a zip of tab-delimited CSVs.
+
+CPT4 is the ONLY vocabulary needing a UMLS API key, because OHDSI cannot
+redistribute CPT4 descriptions. Its codes ship with blank descriptions and a
+separate cpt4.jar utility fetches them. Every other vocabulary, including all
+of SNOMED, LOINC, RxNorm, ATC and UCUM, ships complete and needs no UMLS
+involvement whatsoever.
 
 Usage:
     python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip
