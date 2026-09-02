@@ -6,6 +6,7 @@ __pycache__/
 # Generated OMOP database and bulk FHIR input.
 # Fixtures under data/fhir/fixtures/ are committed deliberately.
 data/omop/*.duckdb
+data/omop/*.wal
 data/fhir/*.json
 data/fhir/bulk/
 
