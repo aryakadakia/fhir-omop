@@ -29,6 +29,21 @@ Not yet implemented: `Observation` → `measurement`, `Encounter` →
 `visit_occurrence`, `MedicationRequest` → `drug_exposure`,
 `observation_period` derivation.
 
+## The course
+
+`docs/course.html` is a written course on both standards, taught against this
+pipeline's actual output — what FHIR and OMOP each exist for, how references,
+concepts, `Maps to` and the vocabulary hierarchy work, and the four rules that
+govern the bridge between them. Open it in a browser.
+
+It is also published as a hosted page:
+<https://claude.ai/code/artifact/956dbf95-8822-4193-956f-37a732738b38>
+
+> Note for republishing: the page body is authored without `<html>`/`<head>`/
+> `<body>` because the host wraps it at publish time. Browsers insert those
+> automatically, so the file still opens correctly from disk. When republishing
+> after an edit, pass that URL explicitly or a second, separate page is created.
+
 ## Quick start
 
 ```bash

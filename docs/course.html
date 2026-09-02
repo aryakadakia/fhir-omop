@@ -1,0 +1,1329 @@
+<title>The FHIR–OMOP Bridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --paper:        #F7F8F6;
+  --surface:      #FFFFFF;
+  --surface-sunk: #EFF1EE;
+  --ink:          #111715;
+  --ink-soft:     #45514D;
+  --ink-faint:    #6E7A75;
+  --rule:         #D9DED9;
+  --rule-soft:    #E7EAE6;
+
+  --petrol:       #14505C;
+  --petrol-bright:#1B6C7C;
+  --petrol-wash:  #E4EDEE;
+  --clay:         #A6543A;
+  --clay-wash:    #F6E9E3;
+  --sage:         #5E7361;
+  --sage-wash:    #E7EDE7;
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+
+  --measure: 68ch;
+  --s1: 0.5rem; --s2: 0.85rem; --s3: 1.35rem; --s4: 2.1rem; --s5: 3.4rem; --s6: 5rem;
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --paper:        #0E1413;
+    --surface:      #151D1B;
+    --surface-sunk: #101817;
+    --ink:          #E4E9E5;
+    --ink-soft:     #A8B3AE;
+    --ink-faint:    #7C8782;
+    --rule:         #263230;
+    --rule-soft:    #1D2725;
+
+    --petrol:       #6FBACB;
+    --petrol-bright:#8FD2E1;
+    --petrol-wash:  #14282D;
+    --clay:         #D9906F;
+    --clay-wash:    #2E1E17;
+    --sage:         #9DB49F;
+    --sage-wash:    #1B241C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:        #0E1413;
+  --surface:      #151D1B;
+  --surface-sunk: #101817;
+  --ink:          #E4E9E5;
+  --ink-soft:     #A8B3AE;
+  --ink-faint:    #7C8782;
+  --rule:         #263230;
+  --rule-soft:    #1D2725;
+
+  --petrol:       #6FBACB;
+  --petrol-bright:#8FD2E1;
+  --petrol-wash:  #14282D;
+  --clay:         #D9906F;
+  --clay-wash:    #2E1E17;
+  --sage:         #9DB49F;
+  --sage-wash:    #1B241C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.68;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--s3) var(--s6); }
+
+/* ---------- masthead ---------- */
+
+.masthead { border-bottom: 2px solid var(--ink); padding: var(--s5) 0 var(--s3); margin-bottom: var(--s5); }
+
+.eyebrow {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--petrol); margin: 0 0 var(--s2);
+}
+
+.masthead h1 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(2.6rem, 7vw, 4.6rem); line-height: 1.02;
+  letter-spacing: -0.02em; margin: 0 0 var(--s3); text-wrap: balance;
+}
+
+.standfirst {
+  font-family: var(--serif); font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  line-height: 1.5; color: var(--ink-soft); max-width: var(--measure); margin: 0;
+}
+
+.masthead-meta {
+  display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s4);
+  font-family: var(--mono); font-size: 0.75rem; color: var(--ink-faint);
+}
+.masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+/* ---------- contents ---------- */
+
+.toc { background: var(--surface-sunk); border: 1px solid var(--rule); padding: var(--s3); margin-bottom: var(--s6); }
+.toc h2 {
+  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-faint); margin: 0 0 var(--s2); font-weight: 500;
+}
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc a {
+  display: grid; grid-template-columns: 2.6rem 1fr; gap: var(--s2);
+  padding: 0.5rem var(--s1); color: var(--ink); text-decoration: none; border-radius: 2px;
+}
+.toc a:hover { background: var(--petrol-wash); color: var(--petrol); }
+.toc .num { font-family: var(--mono); font-size: 0.8rem; color: var(--petrol); }
+
+/* ---------- modules ---------- */
+
+.module { margin-bottom: var(--s6); scroll-margin-top: var(--s3); }
+
+.module-head {
+  display: grid; grid-template-columns: 3.6rem 1fr; gap: var(--s3);
+  align-items: start; border-top: 1px solid var(--ink);
+  padding-top: var(--s2); margin-bottom: var(--s4);
+}
+.module-num {
+  font-family: var(--mono); font-size: 0.78rem; color: var(--petrol);
+  padding-top: 0.55rem; font-variant-numeric: tabular-nums;
+}
+.module-head h2 {
+  font-family: var(--serif); font-weight: 600;
+  font-size: clamp(1.7rem, 3.6vw, 2.5rem); line-height: 1.12;
+  letter-spacing: -0.015em; margin: 0 0 var(--s1); text-wrap: balance;
+}
+.module-head .sub { color: var(--ink-faint); font-size: 0.95rem; margin: 0; max-width: var(--measure); }
+
+.body { max-width: var(--measure); }
+.body > * + * { margin-top: var(--s3); }
+.body p { margin: 0; }
+.body h3 {
+  font-family: var(--sans); font-weight: 600; font-size: 1.02rem;
+  letter-spacing: 0.01em; margin: var(--s4) 0 0; color: var(--ink);
+}
+.body h3::before { content: ""; display: block; width: 2rem; height: 2px; background: var(--petrol); margin-bottom: var(--s2); }
+.body h4 { font-family: var(--sans); font-weight: 600; font-size: 0.95rem; margin: var(--s3) 0 0; color: var(--ink); }
+.body ul, .body ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+.body li { padding-left: 0.2rem; }
+
+strong { font-weight: 600; }
+em { font-style: italic; }
+
+a { color: var(--petrol); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, .toc a:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+code {
+  font-family: var(--mono); font-size: 0.86em; background: var(--surface-sunk);
+  border: 1px solid var(--rule-soft); padding: 0.06em 0.34em; border-radius: 2px; white-space: nowrap;
+}
+
+/* ---------- code blocks ---------- */
+
+.code { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--petrol); overflow-x: auto; max-width: 100%; }
+.code pre { margin: 0; padding: var(--s3); font-family: var(--mono); font-size: 0.8rem; line-height: 1.65; color: var(--ink-soft); }
+.code .cap {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-faint); padding: 0.55rem var(--s3);
+  border-bottom: 1px solid var(--rule-soft); background: var(--surface-sunk); position: sticky; left: 0;
+}
+.code b { color: var(--petrol); font-weight: 500; }
+.code i { color: var(--clay); font-style: normal; }
+.code s { color: var(--ink-faint); text-decoration: none; }
+.code u { color: var(--sage); text-decoration: none; }
+
+.wide { max-width: 100%; }
+
+/* ---------- callouts ---------- */
+
+.silent { border: 1px solid var(--clay); background: var(--clay-wash); padding: var(--s3); max-width: var(--measure); }
+.silent .tag {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--clay); display: block; margin-bottom: var(--s2);
+}
+.silent p { margin: 0; font-size: 0.95rem; }
+.silent p + p { margin-top: var(--s2); }
+
+.try { border: 1px solid var(--sage); background: var(--sage-wash); padding: var(--s3); }
+.try .tag {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--sage); display: block; margin-bottom: var(--s2);
+}
+.try p { margin: 0 0 var(--s2); font-size: 0.95rem; }
+.try .code { border-left-color: var(--sage); }
+
+.aside {
+  border-left: 3px solid var(--rule); padding-left: var(--s3);
+  font-family: var(--serif); font-size: 1.05rem; color: var(--ink-soft); max-width: var(--measure);
+}
+
+/* ---------- anatomy: field-by-field breakdown ---------- */
+
+.anatomy { border: 1px solid var(--rule); background: var(--surface); }
+.anatomy > div { display: grid; grid-template-columns: minmax(140px, 190px) 1fr; gap: var(--s3); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--rule-soft); }
+.anatomy > div:last-child { border-bottom: none; }
+.anatomy .f { font-family: var(--mono); font-size: 0.78rem; color: var(--petrol); }
+.anatomy .v { font-size: 0.9rem; color: var(--ink-soft); }
+.anatomy .v b { color: var(--ink); font-weight: 600; }
+
+/* ---------- tables ---------- */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.87rem; min-width: 480px; }
+th, td { text-align: left; padding: 0.62rem var(--s2); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+th {
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+  background: var(--surface-sunk); white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.mono { font-family: var(--mono); font-size: 0.8rem; }
+
+/* ---------- comparison ---------- */
+
+.versus { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.versus > div { background: var(--surface); padding: var(--s3); }
+.versus h4 { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 var(--s2); color: var(--petrol); }
+.versus dl { margin: 0; display: grid; gap: var(--s2); }
+.versus dt { font-size: 0.7rem; font-family: var(--mono); color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.07em; }
+.versus dd { margin: 0.15rem 0 0; font-size: 0.92rem; }
+
+/* ---------- pipeline ---------- */
+
+.pipeline { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.stage { background: var(--surface); padding: var(--s3); display: grid; grid-template-columns: 4rem 1fr; gap: var(--s3); }
+.stage .pass { font-family: var(--mono); font-size: 0.72rem; color: var(--petrol); letter-spacing: 0.08em; }
+.stage h4 { margin: 0 0 0.3rem; font-size: 0.98rem; font-weight: 600; }
+.stage p { margin: 0; font-size: 0.9rem; color: var(--ink-soft); }
+
+/* ---------- stat row ---------- */
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.stat { background: var(--surface); padding: var(--s3); }
+.stat .n { font-family: var(--mono); font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--petrol); display: block; line-height: 1.1; }
+.stat .l { font-size: 0.76rem; color: var(--ink-faint); margin-top: 0.35rem; display: block; }
+
+/* ---------- glossary ---------- */
+
+.glossary { display: grid; gap: 0; border: 1px solid var(--rule); background: var(--surface); }
+.glossary div { padding: var(--s3); border-bottom: 1px solid var(--rule-soft); display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: var(--s3); }
+.glossary div:last-child { border-bottom: none; }
+.glossary dt { font-family: var(--mono); font-size: 0.82rem; color: var(--petrol); }
+.glossary dd { margin: 0; font-size: 0.92rem; color: var(--ink-soft); }
+
+/* ---------- reference cards ---------- */
+
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.ref { background: var(--surface); padding: var(--s3); }
+.ref h4 { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 600; }
+.ref h4 a { text-decoration: none; }
+.ref p { margin: 0; font-size: 0.87rem; color: var(--ink-soft); }
+.ref .kind { font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); display: block; margin-bottom: var(--s1); }
+
+@media (max-width: 620px) {
+  .glossary div { grid-template-columns: 1fr; gap: var(--s1); }
+  .module-head { grid-template-columns: 1fr; gap: var(--s1); }
+  .module-num { padding-top: 0; }
+  .stage { grid-template-columns: 1fr; gap: var(--s1); }
+  .anatomy > div { grid-template-columns: 1fr; gap: 0.2rem; }
+  body { font-size: 16px; }
+}
+
+.foot { border-top: 2px solid var(--ink); padding-top: var(--s3); margin-top: var(--s6); font-size: 0.85rem; color: var(--ink-faint); max-width: var(--measure); }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Health data engineering · working course</p>
+  <h1>The FHIR–OMOP Bridge</h1>
+  <p class="standfirst">Two standards govern clinical data. One moves it between systems; the other makes it answerable. This is how each works, why both exist, and what breaks when you connect them — taught against a pipeline that loaded 331,000 real FHIR resources, with nothing assumed.</p>
+  <div class="masthead-meta">
+    <span><b>Substrate</b> Synthea FHIR R4, 1,180 patients</span>
+    <span><b>Target</b> OMOP CDM 5.4</span>
+    <span><b>Repo</b> ~/Desktop/fhir_omop</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Modules</h2>
+  <ol>
+    <li><a href="#m0"><span class="num">00</span><span>What we are building, and why</span></a></li>
+    <li><a href="#m1"><span class="num">01</span><span>Why two standards exist at all</span></a></li>
+    <li><a href="#m2"><span class="num">02</span><span>FHIR: resources and how they point at each other</span></a></li>
+    <li><a href="#m2b"><span class="num">03</span><span>The FHIR resources worth knowing</span></a></li>
+    <li><a href="#m3"><span class="num">04</span><span>What a concept actually is</span></a></li>
+    <li><a href="#m3b"><span class="num">05</span><span>Relationships and hierarchy</span></a></li>
+    <li><a href="#m4"><span class="num">06</span><span>Surrogate keys and the index</span></a></li>
+    <li><a href="#m5"><span class="num">07</span><span>The four rules of the bridge</span></a></li>
+    <li><a href="#m6"><span class="num">08</span><span>Rates: numerator, denominator, observation_period</span></a></li>
+    <li><a href="#m7"><span class="num">09</span><span>Using it: defining a cohort</span></a></li>
+    <li><a href="#m8"><span class="num">10</span><span>What FHIR is for, beyond our ETL</span></a></li>
+    <li><a href="#m9"><span class="num">11</span><span>What OMOP is for, beyond our ETL</span></a></li>
+    <li><a href="#m10"><span class="num">12</span><span>Profiles, AU Core, and Australia</span></a></li>
+    <li><a href="#refs"><span class="num">▤</span><span>Where to look things up</span></a></li>
+    <li><a href="#gloss"><span class="num">△</span><span>Glossary</span></a></li>
+  </ol>
+</nav>
+
+<!-- ================= 0 ================= -->
+<section class="module" id="m0">
+  <div class="module-head">
+    <div class="module-num">00</div>
+    <div>
+      <h2>What we are building, and why</h2>
+      <p class="sub">The question that should have come first.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>Start with a concrete problem. A hospital has a database of patients. You want to answer: <em>how many of our diabetic patients over 60 were prescribed this drug, and what happened to them afterwards?</em></p>
+
+    <p>You cannot ask that question of the hospital's system directly. Its data comes out in <strong>FHIR</strong> — a format built for handing one patient's record to one application at a time. Asking FHIR a population question means downloading every patient individually and doing the analysis yourself, from scratch, in a shape nobody else can reuse.</p>
+
+    <p>So the field standardised a second format, <strong>OMOP CDM</strong>, built purely for asking population questions. Same clinical facts, completely different shape.</p>
+
+    <div class="aside">The gap between those two formats is a real, permanent piece of infrastructure. Somebody has to build the converter. That converter is what this project is.</div>
+
+    <h3>The specific thing we are doing</h3>
+
+    <div class="pipeline">
+      <div class="stage"><div class="pass">input</div><div><h4>1,180 FHIR bundles</h4><p>Synthetic patients from Synthea. Each is a JSON file holding one person's entire simulated lifetime — roughly 280 resources each, 331,000 in total.</p></div></div>
+      <div class="stage"><div class="pass">process</div><div><h4>The ETL — extract, transform, load</h4><p>Read each bundle, decide what each resource becomes in OMOP, translate its codes, and write the rows. This is the code we wrote.</p></div></div>
+      <div class="stage"><div class="pass">output</div><div><h4>An OMOP CDM database</h4><p>Six populated tables, 332,000 rows, every one traceable back to the FHIR resource that produced it.</p></div></div>
+      <div class="stage"><div class="pass">result</div><div><h4>Questions you can now ask</h4><p>Prevalence, cohorts, comparisons — in SQL that would run unchanged against any OMOP database in the world.</p></div></div>
+    </div>
+
+    <h3>Which standard is doing what, here</h3>
+    <ul>
+      <li><strong>FHIR is the source format.</strong> We only <em>read</em> it. Every design decision on the input side is about correctly interpreting what a FHIR resource means.</li>
+      <li><strong>OMOP is the target format.</strong> We only <em>write</em> it. Every decision on the output side is about obeying the CDM's rules so that standard tools can read our result.</li>
+      <li><strong>The vocabulary sits between them</strong>, translating codes from the source's terminology into OMOP's integer keyspace. It is the largest single piece of machinery in the whole thing.</li>
+    </ul>
+
+    <h3>Why build this to learn, rather than just read about it</h3>
+    <p>Because the two models disagree, and every disagreement forces a decision you must make consciously. FHIR says "this is a Condition"; OMOP says "that concept belongs in the observation table." FHIR permits a birth date of just a year; OMOP requires a year and permits null month. Reading a specification lets you nod past these. Writing the converter does not — you must resolve every one, and that is what turns knowledge into competence.</p>
+
+    <div class="silent">
+      <span class="tag">The thesis of this course</span>
+      <p>Almost every way this pipeline can be wrong produces <strong>no error at all</strong>. The rows insert. Foreign keys resolve. Tests pass. The numbers are simply wrong, quietly, forever.</p>
+      <p>That is why the data-quality suite exists, and why it is written <em>before</em> trusting a mapping rather than after.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 1 ================= -->
+<section class="module" id="m1">
+  <div class="module-head">
+    <div class="module-num">01</div>
+    <div>
+      <h2>Why two standards exist at all</h2>
+      <p class="sub">They are not competitors. Neither can do the other's job.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p><strong>FHIR answers: "give me this patient's data, now."</strong> Built by HL7 for <em>exchange</em> — an app asking a hospital's server for one person's medications so it can render a screen. A REST API returning JSON. Optimised for one patient, in real time, over a network.</p>
+
+    <p><strong>OMOP answers: "how many people like this, across all our hospitals?"</strong> Built by OHDSI for <em>analysis</em> — asking whether a drug is associated with an outcome across a hundred million records in twenty countries. A relational schema you write SQL against. Optimised for populations, retrospectively, on a warehouse.</p>
+
+    <div class="versus">
+      <div>
+        <h4>FHIR</h4>
+        <dl>
+          <dt>Body</dt><dd>HL7 International</dd>
+          <dt>Shape</dt><dd>JSON resources over REST</dd>
+          <dt>Unit of work</dt><dd>One patient, one request</dd>
+          <dt>Timing</dt><dd>Live, transactional</dd>
+          <dt>Terminology</dt><dd>Whatever the sender uses</dd>
+          <dt>You build</dt><dd>Apps, integrations, portals</dd>
+        </dl>
+      </div>
+      <div>
+        <h4>OMOP CDM</h4>
+        <dl>
+          <dt>Body</dt><dd>OHDSI</dd>
+          <dt>Shape</dt><dd>~40 relational tables</dd>
+          <dt>Unit of work</dt><dd>A whole population</dd>
+          <dt>Timing</dt><dd>Retrospective, batch</dd>
+          <dt>Terminology</dt><dd>One normalised vocabulary</dd>
+          <dt>You build</dt><dd>Studies, cohorts, evidence</dd>
+        </dl>
+      </div>
+    </div>
+
+    <h3>The consequence for a career</h3>
+    <p>A digital health product almost always needs both. FHIR is how your software gets data out of an EHR and earns a place inside a hospital's systems. OMOP is how you demonstrate afterwards that the thing works — the evidence a regulator, a payer, or a journal will ask for. People who move between the two are rare, because the two communities barely overlap.</p>
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section class="module" id="m2">
+  <div class="module-head">
+    <div class="module-num">02</div>
+    <div>
+      <h2>FHIR: resources and how they point at each other</h2>
+      <p class="sub">References in full, because everything downstream depends on them.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>FHIR defines about 150 <strong>resource types</strong>. Each is a JSON object with a <code>resourceType</code> and an <code>id</code>. That is the whole model. The crucial consequence: <strong>nothing contains anything</strong>. There is no patient object holding a list of conditions — there is one <code>Patient</code> resource, and separate <code>Condition</code> resources that point at it.</p>
+
+    <h3>How a reference actually works</h3>
+    <p>A reference is a JSON object with a <code>reference</code> string inside it. That string is a pointer. There are three forms you will meet, and they are not interchangeable:</p>
+
+    <div class="code">
+      <div class="cap">the three forms of Reference.reference</div>
+<pre><s>1. RELATIVE — the common form from a live server.
+   "ResourceType/id". Resolve against the server's base URL.</s>
+"subject": { "reference": <b>"Patient/1234"</b> }
+   <s>→ fetch https://fhir.hospital.org/r4/Patient/1234</s>
+
+<s>2. ABSOLUTE — a full URL, possibly on a different server.</s>
+"subject": { "reference": <b>"https://other.org/fhir/Patient/1234"</b> }
+
+<s>3. URN / UUID — an INTRA-BUNDLE pointer. Not fetchable.
+   It matches the `fullUrl` of another entry in the same Bundle.</s>
+"subject": { "reference": <b>"urn:uuid:5cbc121b-cd71-4428-b8b7-31e53eba8184"</b> }</pre>
+    </div>
+
+    <p>Synthea uses form 3, and this is worth understanding precisely. A Bundle is a list of <code>entry</code> objects. Each entry has a <code>fullUrl</code> and a <code>resource</code>. The <code>fullUrl</code> is the entry's address <em>within this bundle</em>:</p>
+
+    <div class="code wide">
+      <div class="cap">how the pointer and the target line up</div>
+<pre>{
+  "resourceType": "Bundle",
+  "entry": [
+    {
+      "fullUrl": <b>"urn:uuid:5cbc121b-cd71-4428-b8b7-31e53eba8184"</b>,   <s>← the address</s>
+      "resource": { "resourceType": "Patient",
+                    "id": <b>"5cbc121b-cd71-4428-b8b7-31e53eba8184"</b> }   <s>← same value</s>
+    },
+    {
+      "fullUrl": "urn:uuid:4e3be31c-bb2c-479c-b855-23e3103e42d5",
+      "resource": { "resourceType": "Condition",
+                    "code": { ... "Cardiac Arrest" ... },
+                    "subject": { "reference":
+                       <b>"urn:uuid:5cbc121b-cd71-4428-b8b7-31e53eba8184"</b> }  <s>← points back</s>
+      }
+    }
+  ]
+}</pre>
+    </div>
+
+    <p>So resolving a reference is a <em>string match</em>, not a network call. You strip the <code>urn:uuid:</code> prefix and look for a resource with that <code>id</code>. There is no magic — and no validation. If the target is missing, nothing tells you; you just get a pointer into nowhere.</p>
+
+    <h4>Which direction do references point?</h4>
+    <p>Almost always <strong>from the specific to the general</strong>. A <code>Condition</code> points at its <code>Patient</code>; a <code>Patient</code> does not list its conditions. To find a patient's conditions on a live server you <em>search</em>: <code>GET /Condition?patient=1234</code>. The reference is stored on the many side, exactly like a foreign key in a relational database.</p>
+
+    <div class="silent">
+      <span class="tag">Fails silently</span>
+      <p>Assume one reference form and your code works perfectly against Synthea, then returns zero rows against a real Epic server — or the reverse. Both forms are legal. Handle both, or you will ship something that works only against the data you tested with.</p>
+    </div>
+
+    <h3>CodeableConcept: a code is meaningless alone</h3>
+    <p>Clinical meaning travels in a <code>CodeableConcept</code>:</p>
+
+    <div class="code">
+      <div class="cap">Condition.code</div>
+<pre>"code": {
+  "coding": [ {
+    "system":  <b>"http://snomed.info/sct"</b>,     <s>which dictionary</s>
+    "code":    <b>"410429000"</b>,                  <s>the entry in it</s>
+    "display": "Cardiac Arrest"                <s>a label — NOT authoritative</s>
+  } ],
+  "text": "Cardiac Arrest"                     <s>free text, human-entered</s>
+}</pre>
+    </div>
+
+    <p><code>coding</code> is an <em>array</em> because the same idea can be sent in several code systems at once — SNOMED and ICD-10 and a local code, all describing one thing. <code>system</code> is a URI naming the dictionary. Never match on <code>display</code>: it is a convenience label the sender chose, and two systems will spell the same concept differently.</p>
+  </div>
+</section>
+
+<!-- ================= 2b ================= -->
+<section class="module" id="m2b">
+  <div class="module-head">
+    <div class="module-num">03</div>
+    <div>
+      <h2>The FHIR resources worth knowing</h2>
+      <p class="sub">There are ~150. You need perhaps twenty.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>Resources are grouped by what they describe. These are the ones that carry real weight in practice.</p>
+
+    <h3>The clinical core — what you map first</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Resource</th><th>What it holds</th><th>OMOP target</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Patient</td><td>Demographics. Exactly one per person.</td><td class="mono">person</td></tr>
+          <tr><td class="mono">Condition</td><td>Diagnoses, problems, health concerns.</td><td class="mono">condition_occurrence</td></tr>
+          <tr><td class="mono">Observation</td><td>Labs, vitals, smoking status, survey answers. The biggest by far.</td><td class="mono">measurement / observation</td></tr>
+          <tr><td class="mono">Encounter</td><td>A visit or admission. The spine other facts hang from.</td><td class="mono">visit_occurrence</td></tr>
+          <tr><td class="mono">MedicationRequest</td><td>A prescription order.</td><td class="mono">drug_exposure</td></tr>
+          <tr><td class="mono">Procedure</td><td>Something done to the patient.</td><td class="mono">procedure_occurrence</td></tr>
+          <tr><td class="mono">AllergyIntolerance</td><td>Allergies and reactions.</td><td class="mono">observation</td></tr>
+          <tr><td class="mono">Immunization</td><td>Vaccines given.</td><td class="mono">drug_exposure</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>The medication family — a common trap</h3>
+    <p>FHIR splits medication into several resources by <em>what stage of the process</em> it represents. Getting this wrong misstates exposure badly:</p>
+    <ul>
+      <li><strong><code>MedicationRequest</code></strong> — a prescription was <em>written</em>. Says nothing about whether it was filled or taken.</li>
+      <li><strong><code>MedicationDispense</code></strong> — a pharmacy <em>handed it over</em>. Stronger evidence.</li>
+      <li><strong><code>MedicationAdministration</code></strong> — someone actually <em>gave</em> it, typically inpatient. Strongest.</li>
+      <li><strong><code>MedicationStatement</code></strong> — a <em>report</em> that the patient is taking something, often self-reported. This is where over-the-counter and outside-prescriber drugs live, and a med list without it is incomplete.</li>
+    </ul>
+
+    <h3>Documents and reports</h3>
+    <ul>
+      <li><strong><code>DocumentReference</code></strong> — a pointer to a clinical note or PDF, with the content base64-encoded or behind a URL. This is where free text lives, and therefore where most of the clinically interesting detail hides.</li>
+      <li><strong><code>DiagnosticReport</code></strong> — a grouping resource: a lab panel or radiology report bundling several <code>Observation</code>s plus a narrative conclusion.</li>
+    </ul>
+
+    <h3>Administrative and financial</h3>
+    <ul>
+      <li><strong><code>Practitioner</code>, <code>PractitionerRole</code>, <code>Organization</code>, <code>Location</code></strong> — the who and where. Map to <code>provider</code> and <code>care_site</code>.</li>
+      <li><strong><code>Coverage</code>, <code>Claim</code>, <code>ExplanationOfBenefit</code></strong> — insurance and billing. Central to health-economics work; irrelevant to most clinical questions.</li>
+      <li><strong><code>Appointment</code>, <code>Schedule</code>, <code>ServiceRequest</code></strong> — scheduling and orders.</li>
+    </ul>
+
+    <h3>Infrastructure resources — not patient data at all</h3>
+    <p>These describe the <em>system</em> rather than any person, and they are the ones people skip and later regret:</p>
+    <ul>
+      <li><strong><code>CapabilityStatement</code></strong> — what this server actually supports. Fetched from <code>/metadata</code>. Every vendor implements a different subset, so this is the first call you should make against any new endpoint.</li>
+      <li><strong><code>StructureDefinition</code></strong> — the definition of a resource or a profile. This is what an implementation guide like AU Core is <em>made of</em>.</li>
+      <li><strong><code>ValueSet</code> and <code>CodeSystem</code></strong> — the terminology machinery: which codes are permitted in a given field.</li>
+      <li><strong><code>OperationOutcome</code></strong> — how FHIR returns errors.</li>
+      <li><strong><code>Bundle</code></strong> — the envelope. Search results, transactions, and Synthea's per-patient files are all Bundles.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section class="module" id="m3">
+  <div class="module-head">
+    <div class="module-num">04</div>
+    <div>
+      <h2>What a concept actually is</h2>
+      <p class="sub">The single most important idea in OMOP, taken slowly.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <h3>The problem being solved</h3>
+    <p>Consider the medical idea <em>high blood pressure that has no identifiable underlying cause</em>. Doctors call it essential hypertension. Now consider how different systems write it down:</p>
+
+    <div class="code">
+      <div class="cap">one idea, many codes</div>
+<pre>SNOMED CT     <b>59621000</b>       "Essential hypertension"
+ICD-10        <b>I10</b>            "Essential (primary) hypertension"
+ICD-9-CM      <b>401.9</b>          "Unspecified essential hypertension"
+Read v2       <b>G20..</b>          "Essential hypertension"
+some hospital <b>HTN-1</b>          "HTN, essential"</pre>
+    </div>
+
+    <p>Five codes. One idea. If your database stores whatever code each hospital sent, you cannot count patients across hospitals — you would have to know all five, and next year there will be a sixth.</p>
+
+    <h3>The solution: an integer for the idea itself</h3>
+    <p>OMOP creates a separate identifier for the <em>idea</em>, independent of any coding system. That identifier is a <strong>concept_id</strong>: an arbitrary integer, meaningful only within OMOP.</p>
+
+    <p>Essential hypertension is <strong><code>320128</code></strong>. Every one of those five source codes points at it. Store <code>320128</code> and your query works everywhere.</p>
+
+    <div class="aside">A "clinical idea" here just means a distinct thing you might want to count: a disease, a lab test, a drug ingredient, a procedure, a unit of measure, even "male". Anything that can appear in a coded field gets a concept.</div>
+
+    <h3>Anatomy of a real concept row</h3>
+    <p>The <code>concept</code> table is one enormous dictionary. Here is an actual row from our database, field by field:</p>
+
+    <div class="anatomy">
+      <div><span class="f">concept_id</span><span class="v"><b>320128</b> — OMOP's own integer. This is what you store in your data.</span></div>
+      <div><span class="f">concept_name</span><span class="v"><b>Essential hypertension</b> — the human-readable label.</span></div>
+      <div><span class="f">domain_id</span><span class="v"><b>Condition</b> — which CDM table facts using this concept belong in.</span></div>
+      <div><span class="f">vocabulary_id</span><span class="v"><b>SNOMED</b> — which source dictionary this concept came from.</span></div>
+      <div><span class="f">concept_class_id</span><span class="v"><b>Disorder</b> — the vocabulary's own internal category.</span></div>
+      <div><span class="f">standard_concept</span><span class="v"><b>S</b> — this is the canonical concept for the idea. See below.</span></div>
+      <div><span class="f">concept_code</span><span class="v"><b>59621000</b> — the code as it exists in SNOMED. This is the bridge back to the source.</span></div>
+      <div><span class="f">valid_start_date<br>valid_end_date</span><span class="v"><b>2002-01-31</b> to <b>2099-12-31</b> — when this concept is in force. A far-future end date means "still current".</span></div>
+      <div><span class="f">invalid_reason</span><span class="v"><b>NULL</b> — still valid. Non-null means deprecated.</span></div>
+    </div>
+
+    <h3>How a code turns into a concept_id</h3>
+    <p>It is a lookup, and there is nothing clever about it. You have a code and you know which dictionary it came from. You search the <code>concept</code> table for that pair:</p>
+
+    <div class="code">
+      <div class="cap">step 1 — the lookup</div>
+<pre>SELECT concept_id, standard_concept, domain_id
+FROM   concept
+WHERE  <b>concept_code   = '59621000'</b>     <s>from FHIR Coding.code</s>
+  AND  <b>vocabulary_id  = 'SNOMED'</b>;      <s>translated from Coding.system</s>
+
+<s>→ 320128 | S | Condition</s></pre>
+    </div>
+
+    <p>You need <em>both</em> halves. <code>concept_code</code> alone is ambiguous — different vocabularies reuse the same strings. The <code>vocabulary_id</code> comes from translating the FHIR <code>system</code> URI (<code>http://snomed.info/sct</code> → <code>SNOMED</code>), which is a small hard-coded table in our pipeline.</p>
+
+    <h3>"Designating canonical" — what standard_concept means</h3>
+    <p>Because concepts are imported from many vocabularies, OMOP ends up holding several concepts that mean roughly the same thing — one from SNOMED, one from ICD-10, and so on. It would be chaos if analysts each picked a different one.</p>
+
+    <p>So OMOP nominates <strong>one concept per idea as the standard</strong> — marked <code>standard_concept = 'S'</code>. Everything else is non-standard and exists only to be translated <em>from</em>.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>standard_concept</th><th>Means</th><th>May you store it?</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">'S'</td><td>Standard. The canonical concept for this idea.</td><td>Yes — this is what belongs in <code>*_concept_id</code>.</td></tr>
+          <tr><td class="mono">'C'</td><td>Classification. A grouping concept, e.g. an ATC drug class.</td><td>Not in event tables; useful for rolling up.</td></tr>
+          <tr><td class="mono">NULL</td><td>Non-standard. A source code awaiting translation.</td><td>Only in <code>*_source_concept_id</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The convention that follows: OMOP stores <strong>two</strong> concept ids for every coded fact.</p>
+
+    <div class="code">
+      <div class="cap">why both are kept</div>
+<pre>condition_concept_id         <b>320128</b>      <s>the STANDARD concept — analyse on this</s>
+condition_source_concept_id  <b>320128</b>      <s>the concept for the code as RECEIVED</s>
+condition_source_value       <b>'59621000'</b>  <s>the raw string that arrived</s></pre>
+    </div>
+
+    <p>Here all three agree, because the incoming code was already standard. When it is not, the first two differ — and that difference is the entire subject of the next module.</p>
+  </div>
+</section>
+
+<!-- ================= 3b ================= -->
+<section class="module" id="m3b">
+  <div class="module-head">
+    <div class="module-num">05</div>
+    <div>
+      <h2>Relationships and hierarchy</h2>
+      <p class="sub"><code style="font-size:0.8em">Maps to</code>, ancestors, descendants — the two tables that connect concepts.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>Concepts alone are just a dictionary. Two further tables connect them, and they do different jobs.</p>
+
+    <h3>concept_relationship: a table of edges</h3>
+    <p>This is simply a list of triples — <em>this concept, that concept, and how they relate</em>. Nothing more:</p>
+
+    <div class="code">
+      <div class="cap">a real row from our database</div>
+<pre>concept_id_1 │ concept_id_2 │ relationship_id │ valid_start │ valid_end
+─────────────┼──────────────┼─────────────────┼─────────────┼───────────
+    <b>40316773</b> │      <b>4311629</b> │ <b>Maps to</b>         │ 1970-01-01  │ 2099-12-31</pre>
+    </div>
+
+    <p>Read it as a sentence: <em>concept 40316773 <strong>Maps to</strong> concept 4311629.</em> The <code>relationship_id</code> is just a label saying what kind of edge this is. Our vocabulary subset holds several kinds:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>relationship_id</th><th>Meaning</th><th>Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Maps to</td><td>"When you see 1, use 2 for analysis." The translation edge.</td><td class="num">2,524</td></tr>
+          <tr><td class="mono">Mapped from</td><td>The same edge reversed. Every relationship has an inverse.</td><td class="num">2,524</td></tr>
+          <tr><td class="mono">Is a</td><td>"1 is a kind of 2." The hierarchy edge — one step only.</td><td class="num">2,973</td></tr>
+          <tr><td class="mono">Subsumes</td><td>The inverse of <code>Is a</code>.</td><td class="num">2,973</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Why "Prediabetes" needs mapping — the actual reason</h3>
+    <p>Look at the concept row for 40316773 and the cause is visible:</p>
+
+    <div class="anatomy">
+      <div><span class="f">concept_id</span><span class="v"><b>40316773</b></span></div>
+      <div><span class="f">concept_name</span><span class="v"><b>Prediabetes</b></span></div>
+      <div><span class="f">standard_concept</span><span class="v"><b>NULL</b> — not standard</span></div>
+      <div><span class="f">valid_end_date</span><span class="v"><b>2002-01-31</b> — this concept stopped being valid in 2002</span></div>
+      <div><span class="f">invalid_reason</span><span class="v"><b>U</b> — "Upgraded". SNOMED retired this code and replaced it.</span></div>
+    </div>
+
+    <p>SNOMED deprecated this code decades ago. Synthea still emits it, as real systems routinely do — clinical software is full of codes that were current when the software was written. OMOP keeps the dead concept in the dictionary <em>precisely so that old data can still be translated</em>, and records where it went with a <code>Maps to</code> edge.</p>
+
+    <div class="code">
+      <div class="cap">step 2 — following the edge</div>
+<pre>SELECT cr.concept_id_2
+FROM   concept_relationship cr
+JOIN   concept c ON c.concept_id = cr.concept_id_2
+WHERE  cr.concept_id_1    = <b>40316773</b>          <s>what we received</s>
+  AND  cr.relationship_id = <b>'Maps to'</b>
+  AND  c.standard_concept = <b>'S'</b>;              <s>insist the target is standard</s>
+
+<s>→ 4311629  "Impaired glucose tolerance"</s></pre>
+    </div>
+
+    <p>So the full resolution is: code → concept → (if not standard) → standard concept. Two lookups. In our corpus this affects 388 patients.</p>
+
+    <div class="silent">
+      <span class="tag">Fails silently</span>
+      <p>Store <code>40316773</code> and nothing breaks. The row inserts, foreign keys resolve, checks pass. But every cohort definition in the OHDSI world searches for standard concepts, so those 388 patients are not <em>rejected</em> — they are <strong>invisible</strong>. You will never see an error, only a number that is too small.</p>
+    </div>
+
+    <h3>Where do the mappings come from?</h3>
+    <p>A natural question: who decided that <code>Prediabetes</code> becomes <code>Impaired glucose tolerance</code>? <strong>Not you.</strong> This is the single most important thing to understand about the vocabulary — you never author mappings, you receive them.</p>
+
+    <p>They arrive from two places:</p>
+    <ul>
+      <li><strong>The source vocabularies themselves.</strong> When SNOMED retires a code it publishes what replaces it. When a code is deprecated, its successor is stated by the people who deprecated it. OMOP ingests these as <code>Maps to</code> edges — which is exactly why our Prediabetes row carries <code>invalid_reason = 'U'</code> and a 2002 end date.</li>
+      <li><strong>The OHDSI vocabulary team.</strong> Cross-vocabulary mappings — ICD-10 to SNOMED, one drug terminology to another — are curated centrally, partly derived from UMLS, partly by hand, and versioned with each release.</li>
+    </ul>
+
+    <p><strong>Athena is how that work is distributed.</strong> Downloading the vocabulary is downloading years of other people's terminology curation. That is what makes OMOP worth the trouble, and why "just store the source codes" is not a shortcut — it is declining the mapping work rather than avoiding it.</p>
+
+    <div class="silent">
+      <span class="tag">Two mechanisms, often confused</span>
+      <p><code>Maps to</code> handles <strong>the same idea written differently</strong>. SNOMED <code>59621000</code>, ICD-10 <code>I10</code> and a retired code all mean essential hypertension, so all three <code>Maps to</code> concept <code>320128</code>. Equivalence.</p>
+      <p><code>concept_ancestor</code> handles <strong>different ideas at different levels of specificity</strong>. Pre-eclampsia is <em>not</em> the same as hypertensive disorder — it is a kind of it. Subsumption.</p>
+      <p>You need both, for different jobs. <code>Maps to</code> runs at ETL time, normalising what arrives. <code>concept_ancestor</code> runs at analysis time, letting you ask for a family of concepts at once.</p>
+    </div>
+
+    <h3>concept_ancestor: the hierarchy, precomputed</h3>
+    <p>SNOMED is not a flat list. It is a hierarchy of <em>is-a</em> relationships: essential hypertension <em>is a</em> hypertensive disorder, which <em>is a</em> cardiovascular finding, and so on up to "Disease". Here is the real chain from our database:</p>
+
+    <div class="code">
+      <div class="cap">everything ABOVE Essential hypertension (320128)</div>
+<pre>lvl │ concept_id │ concept_name
+────┼────────────┼──────────────────────────────────
+  <b>0</b> │     320128 │ Essential hypertension          <s>← itself</s>
+  <b>1</b> │     316866 │ Hypertensive disorder
+  <b>2</b> │    4023995 │ Cardiovascular finding
+  <b>2</b> │     134057 │ Disorder of cardiovascular system
+  <b>3</b> │     441840 │ Clinical finding
+  <b>3</b> │    4180628 │ Disorder of body system
+  <b>4</b> │    4274025 │ Disease                         <s>← the top</s></pre>
+    </div>
+
+    <p>The vocabulary is:</p>
+    <ul>
+      <li><strong>Ancestor</strong> — a concept <em>above</em> another. More general. "Hypertensive disorder" is an ancestor of "Essential hypertension".</li>
+      <li><strong>Descendant</strong> — a concept <em>below</em> another. More specific. The reverse relation.</li>
+      <li><strong><code>min_levels_of_separation</code></strong> — how many <em>is-a</em> steps apart they are. Level 0 means the concept and itself: <strong>every concept is its own ancestor and descendant</strong>, which is why a query for descendants includes the concept you asked about.</li>
+    </ul>
+
+    <p>Note two concepts sit at level 2. A concept can have several parents — this is a directed graph, not a tree. That is normal in SNOMED and nothing to worry about.</p>
+
+    <h4>Why a whole table for something derivable</h4>
+    <p><code>concept_relationship</code> already holds <code>Is a</code> edges, so in principle you could walk them recursively. In practice that is far too slow at analysis time, so OMOP ships <code>concept_ancestor</code> as a <strong>precomputed transitive closure</strong> — every ancestor–descendant pair at every distance, worked out in advance. Our small subset already has 115,241 rows; the full vocabulary has hundreds of millions.</p>
+
+    <h3>What the hierarchy buys you</h3>
+    <p>Going <em>downwards</em> is the payoff. Ask for everything beneath "Hypertensive disorder":</p>
+
+    <div class="code">
+      <div class="cap">everything BELOW Hypertensive disorder (316866)</div>
+<pre>lvl │ concept_name
+────┼───────────────────────────────────────
+  <b>0</b> │ Hypertensive disorder
+  <b>1</b> │ Essential hypertension
+  <b>1</b> │ Hypertension in the obstetric context
+  <b>1</b> │ Maternal hypertension
+  <b>2</b> │ Pregnancy-induced hypertension
+  <b>3</b> │ Pre-eclampsia</pre>
+    </div>
+
+    <div class="code">
+      <div class="cap">the query that produced it</div>
+<pre>SELECT d.concept_name
+FROM   <b>concept_ancestor ca</b>
+JOIN   concept d ON d.concept_id = ca.descendant_concept_id
+WHERE  ca.<b>ancestor_concept_id = 316866</b>;</pre>
+    </div>
+
+    <p>One line gives you every form of hypertension in the vocabulary, including ones you had not thought of. Written by hand you would have missed pre-eclampsia. <strong>This is what OMOP gives you that raw EHR data never can</strong>, and it is the reason the vocabulary is worth its considerable weight.</p>
+
+    <div class="try">
+      <span class="tag">Try it</span>
+      <p>Pick any concept and walk both directions. Change the id and see how the shape of medicine changes around it:</p>
+      <div class="code">
+<pre><s>-- what is this concept a kind of?</s>
+SELECT ca.min_levels_of_separation lvl, a.concept_name
+FROM concept_ancestor ca JOIN concept a ON a.concept_id = ca.ancestor_concept_id
+WHERE ca.descendant_concept_id = <b>320128</b> ORDER BY lvl;
+
+<s>-- what kinds of this concept exist?</s>
+SELECT ca.min_levels_of_separation lvl, d.concept_name
+FROM concept_ancestor ca JOIN concept d ON d.concept_id = ca.descendant_concept_id
+WHERE ca.ancestor_concept_id = <b>320128</b> ORDER BY lvl;</pre>
+      </div>
+      <p>Our development vocabulary is a 32k-concept subset, so many concepts have few descendants. With the full Athena release the same queries return hundreds.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section class="module" id="m4">
+  <div class="module-head">
+    <div class="module-num">06</div>
+    <div>
+      <h2>Surrogate keys and the index</h2>
+      <p class="sub">What "building an index" means, and why the pipeline needs passes.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <h3>Two different kinds of identifier</h3>
+    <p>FHIR and OMOP identify a patient in incompatible ways, and understanding why explains the whole architecture.</p>
+
+    <div class="versus">
+      <div>
+        <h4>FHIR Patient.id</h4>
+        <dl>
+          <dt>Looks like</dt><dd><code style="white-space:normal">5cbc121b-cd71-4428-b8b7-31e53eba8184</code></dd>
+          <dt>Type</dt><dd>String — often a UUID</dd>
+          <dt>Assigned by</dt><dd>Whichever system created the resource</dd>
+          <dt>Scope</dt><dd>Unique on that server</dd>
+        </dl>
+      </div>
+      <div>
+        <h4>OMOP person_id</h4>
+        <dl>
+          <dt>Looks like</dt><dd><code>1</code></dd>
+          <dt>Type</dt><dd>BIGINT — an integer</dd>
+          <dt>Assigned by</dt><dd><em>You</em>, during the ETL</dd>
+          <dt>Scope</dt><dd>Unique in your CDM</dd>
+        </dl>
+      </div>
+    </div>
+
+    <p>The CDM specifies <code>person_id</code> as an integer, so a UUID cannot go there. There are also good reasons to want integers: joins across tables with hundreds of millions of rows are dramatically faster on integers, and if you later merge data from two hospitals their local ids may collide while your integers never will.</p>
+
+    <h3>What a surrogate key is</h3>
+    <p>An identifier you invent, with no meaning outside your database, standing in for one whose form you cannot use. <code>person_id = 1</code> means nothing about the patient — it is simply the first person we loaded.</p>
+
+    <p>Inventing it creates an obligation: <strong>never lose the original</strong>. The CDM has a column for exactly this, and our pipeline also writes a provenance row:</p>
+
+    <div class="code">
+      <div class="cap">real rows — the surrogate and its source</div>
+<pre>person_id │ person_source_value
+──────────┼──────────────────────────────────────
+        <b>1</b> │ <u>5cbc121b-cd71-4428-b8b7-31e53eba8184</u>
+        <b>2</b> │ <u>adccf2c3-9dc4-4067-ba23-98982c4875da</u>
+        <b>3</b> │ <u>31191928-6acb-4d73-931c-e601cc3a13fa</u></pre>
+    </div>
+
+    <p>Any row in the CDM can now be traced back to the exact FHIR resource that produced it — which is the difference between an auditable pipeline and an unusable one.</p>
+
+    <h3>What "building an index" means</h3>
+    <p>Literally: a dictionary in memory, mapping the source identifier to the surrogate key you assigned.</p>
+
+    <div class="code">
+      <div class="cap">the index, in full</div>
+<pre>person_index = {
+  "5cbc121b-cd71-4428-b8b7-31e53eba8184": <b>1</b>,
+  "adccf2c3-9dc4-4067-ba23-98982c4875da": <b>2</b>,
+  "31191928-6acb-4d73-931c-e601cc3a13fa": <b>3</b>,
+  ...
+}</pre>
+    </div>
+
+    <p>That is the whole thing. One entry per patient, built as you write each <code>person</code> row.</p>
+
+    <h3>Why it resolves clinical resources</h3>
+    <p>Now walk through what happens when a <code>Condition</code> arrives:</p>
+
+    <div class="code wide">
+      <div class="cap">resolution, step by step</div>
+<pre><s>1. The Condition tells you who it belongs to — as a FHIR reference.</s>
+   condition["subject"]["reference"]
+   → <u>"urn:uuid:5cbc121b-cd71-4428-b8b7-31e53eba8184"</u>
+
+<s>2. Strip the prefix to recover the Patient's id.</s>
+   → <u>"5cbc121b-cd71-4428-b8b7-31e53eba8184"</u>
+
+<s>3. Look it up in the index.</s>
+   person_index["5cbc121b-..."]  →  <b>1</b>
+
+<s>4. NOW you can write the row. person_id is NOT NULL —
+   without step 3 there is nothing legal to put in it.</s>
+   INSERT INTO condition_occurrence (person_id, ...) VALUES (<b>1</b>, ...)</pre>
+    </div>
+
+    <p>This is why the pipeline runs in passes. Step 3 can only work if the person already exists and is in the index. So every <code>Patient</code> must be processed before any <code>Condition</code>. The same applies to encounters, which is why there is a second index and a second pass:</p>
+
+    <div class="pipeline">
+      <div class="stage"><div class="pass">pass 1</div><div><h4>Patient → person</h4><p>Write person rows. Build <code>person_index</code>: FHIR id → <code>person_id</code>.</p></div></div>
+      <div class="stage"><div class="pass">pass 2</div><div><h4>Encounter → visit_occurrence</h4><p>Needs <code>person_index</code> (an encounter belongs to a patient). Builds <code>visit_index</code>: FHIR id → <code>visit_occurrence_id</code>.</p></div></div>
+      <div class="stage"><div class="pass">pass 3</div><div><h4>Conditions, observations, medications</h4><p>Each needs <em>both</em> indexes — a patient and, usually, the visit it happened at.</p></div></div>
+      <div class="stage"><div class="pass">pass 4</div><div><h4>Derive observation_period</h4><p>A function of every event date now loaded, so it must come last.</p></div></div>
+    </div>
+
+    <h3>What happens when resolution fails</h3>
+    <p>A reference may point at something absent — a patient excluded earlier, or a genuinely broken bundle. That row is an <strong>orphan</strong>, and our pipeline refuses it, recording the reason.</p>
+
+    <div class="silent">
+      <span class="tag">Fails silently</span>
+      <p>The tempting shortcut is to invent a <code>person_id</code> rather than lose the row. That does not lose data — it attaches a real diagnosis to the <em>wrong patient</em>, permanently and undetectably. Rejecting the row and reporting it is the only defensible option.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5 ================= -->
+<section class="module" id="m5">
+  <div class="module-head">
+    <div class="module-num">07</div>
+    <div>
+      <h2>The four rules of the bridge</h2>
+      <p class="sub">Everything that broke in our pipeline, and what each one teaches.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p><strong>Rule 1 — Build the reference index before loading anything.</strong> Module 06 in full.</p>
+
+    <p><strong>Rule 2 — Translate the code system, then resolve to standard.</strong> Modules 04 and 05 in full. Summarised:</p>
+
+    <div class="code">
+      <div class="cap">resolution, end to end</div>
+<pre><b>1.</b> FHIR system URI → OMOP vocabulary_id
+      "http://snomed.info/sct" → "SNOMED"
+
+<b>2.</b> (concept_code, vocabulary_id) → concept
+      ("15777000", "SNOMED") → concept_id 40316773
+
+<b>3.</b> <i>if standard_concept is not 'S', follow "Maps to"</i>
+      40316773 Prediabetes <i>[deprecated 2002, invalid_reason='U']</i>
+        └─ Maps to → 4311629 Impaired glucose tolerance ✓</pre>
+    </div>
+
+    <h3>Rule 3 — Route by domain, not by resource type</h3>
+    <p>The rule that surprises everyone. A FHIR <code>Condition</code> does not necessarily become a <code>condition_occurrence</code>. The <code>domain_id</code> on the resolved concept decides the destination table:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Arrived as</th><th>Concept</th><th>domain_id</th><th>Actually goes to</th><th>Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Condition</td><td>Essential hypertension</td><td>Condition</td><td class="mono">condition_occurrence</td><td class="num">330</td></tr>
+          <tr><td class="mono">Condition</td><td>Normal pregnancy</td><td><strong>Observation</strong></td><td class="mono">observation</td><td class="num">516</td></tr>
+          <tr><td class="mono">Condition</td><td>Body mass index 30+ obesity</td><td><strong>Observation</strong></td><td class="mono">observation</td><td class="num">346</td></tr>
+          <tr><td class="mono">Observation</td><td>Body Height (LOINC 8302-2)</td><td><strong>Measurement</strong></td><td class="mono">measurement</td><td class="num">208,513</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>Why OMOP "wins" when the two disagree</h4>
+    <p>This is not a claim that OMOP's classification is more correct. "Normal pregnancy" is a perfectly sensible <code>Condition</code> in FHIR. It means something narrower and more practical:</p>
+
+    <p>Every downstream OHDSI tool — the ATLAS cohort builder, the HADES analysis packages, every published network study — is <em>written against the CDM conventions</em>. When such a tool looks for pregnancy it queries the <code>observation</code> table, because that is where the CDM says Observation-domain concepts live. If you put those 516 rows in <code>condition_occurrence</code> instead, the tools do not error; they look in the right place by their rules and find nothing.</p>
+
+    <div class="aside">"The ecosystem assumes it" means: the value of using a common data model comes entirely from other people's code being able to read your data. Deviate from the convention and you keep the schema but lose the reason you adopted it.</div>
+
+    <div class="silent">
+      <span class="tag">Fails silently</span>
+      <p>Load "Normal pregnancy" into <code>condition_occurrence</code> and the insert succeeds, foreign keys resolve, and no error is raised. You have added 516 rows to the numerator of every pregnancy-related query and to a denominator you will never think to check.</p>
+    </div>
+
+    <h3>Rule 4 — Unmapped means zero, never a guess</h3>
+    <p>OMOP reserves <code>concept_id = 0</code> for "No matching concept". Using it is correct and spec-compliant. Guessing a plausible id is how a dataset becomes quietly, permanently wrong.</p>
+
+    <div class="stats">
+      <div class="stat"><span class="n">0.0%</span><span class="l">measurement concepts unmapped</span></div>
+      <div class="stat"><span class="n">35.6%</span><span class="l">condition concepts unmapped</span></div>
+      <div class="stat"><span class="n">67.6%</span><span class="l">drug concepts unmapped</span></div>
+      <div class="stat"><span class="n">100%</span><span class="l">race / ethnicity — by design</span></div>
+    </div>
+
+    <p>Those middling rates are a <em>vocabulary</em> limitation, not a logic error: our development vocabulary is a 31,976-concept Synthea subset. The full Athena release would resolve most of them. The race and ethnicity figure is different and deliberate — CDM 5.4 marks both <code>NOT NULL</code>, yet AU Core has no race extension at all, and Australian data records Indigenous status under a model that does not map onto OMOP's race/ethnicity pair. Zero is the honest answer.</p>
+
+    <div class="aside">Three of these four failure modes raise no error, fail no constraint, and survive code review. That is why the data-quality suite exists — and why the domain-routing bug in this project was caught by a check rather than by reading the specification.</div>
+  </div>
+</section>
+
+<!-- ================= 6 ================= -->
+<section class="module" id="m6">
+  <div class="module-head">
+    <div class="module-num">08</div>
+    <div>
+      <h2>Rates: numerator, denominator, <code style="font-size:0.72em">observation_period</code></h2>
+      <p class="sub">Why the table with no FHIR counterpart is the one that matters most.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <h3>The arithmetic, plainly</h3>
+    <p>A <strong>rate</strong> is one number divided by another.</p>
+    <ul>
+      <li>The <strong>numerator</strong> is the top: how many had the thing.</li>
+      <li>The <strong>denominator</strong> is the bottom: how many <em>could</em> have had it.</li>
+    </ul>
+
+    <div class="code">
+      <div class="cap">prevalence of hypertension in our data</div>
+<pre>              people with a hypertension diagnosis        <b>330</b>
+prevalence =  ────────────────────────────────────  =  ─────  =  <b>28.0%</b>
+              people who could have been diagnosed      <b>1,180</b></pre>
+    </div>
+
+    <p>The numerator is easy — count rows in <code>condition_occurrence</code>. <strong>The denominator is the hard part, and it is a judgement, not a fact.</strong></p>
+
+    <h3>Why the denominator is not just "everyone"</h3>
+    <p>Someone who appears in your data for a single day was never realistically going to be diagnosed with anything. Their doctor had no opportunity. Counting them in the denominator makes the rate look lower than it truly is — you have added someone to the bottom of the fraction who could never have been added to the top.</p>
+
+    <p>Real EHR data is full of such people: one emergency visit, never seen again. This is not an edge case; in some datasets it is a large minority of rows.</p>
+
+    <h3>What observation_period is</h3>
+    <p>One row per person, recording the window during which they were <em>observable</em> — during which, had something happened to them, your data would have recorded it.</p>
+
+    <p><strong>Nothing in FHIR corresponds to this.</strong> No bundle says "this patient was observable from 1994 to 2019." It has to be <em>derived</em>, and how you derive it changes every rate you will ever publish.</p>
+
+    <div class="code">
+      <div class="cap">our derived periods</div>
+<pre>mean years observed      <b>28.7</b>
+minimum span             <b>0 days</b>   <s>← a single-encounter patient</s>
+observed under 1 year    <b>11 people</b>
+
+hypertension prevalence
+  naive (all 1,180)              <b>28.0%</b>
+  restricted to ≥1yr observed    <b>28.5%</b></pre>
+    </div>
+
+    <p>Half a percentage point here, because Synthea generates full lifetimes for everyone. In real data, where many patients appear once, the same restriction routinely moves prevalence by several points. The technique is identical; only the magnitude differs.</p>
+
+    <h3>How we derive it, and the honesty required</h3>
+    <p>We take each person's first-to-last recorded event across every domain table. That is the usual convention for EHR-derived data, and it is a <em>floor</em>, not a truth — it cannot see that a patient moved away three years before their last visit. Claims data supports a better derivation, because insurance enrolment spans are recorded explicitly rather than inferred.</p>
+
+    <p>The CDM lets you say which you did. We write <code>period_type_concept_id = 44814724</code>, "Period covering healthcare encounters" — a statement in the data itself that this was inferred from event dates, not read from an enrolment record.</p>
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section class="module" id="m7">
+  <div class="module-head">
+    <div class="module-num">09</div>
+    <div>
+      <h2>Using it: defining a cohort</h2>
+      <p class="sub">The skill the whole exercise exists to enable.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>A <strong>cohort</strong> is the atom of observational research: the set of people meeting criteria, over a period. Every OHDSI study is cohorts compared against cohorts.</p>
+
+    <div class="code wide">
+      <div class="cap">cohort · adults with hypertension, observed ≥ 1 year</div>
+<pre><s>-- 1. THE CONCEPT SET. concept_ancestor gives you the concept and
+--    everything beneath it, without enumerating codes by hand.</s>
+WITH concept_set AS (
+  SELECT descendant_concept_id AS concept_id
+  FROM   <b>concept_ancestor</b>
+  WHERE  ancestor_concept_id = 316866        <s>-- Hypertensive disorder</s>
+),
+
+<s>-- 2. QUALIFYING PEOPLE. The first matching diagnosis is the index date.</s>
+indexed AS (
+  SELECT co.person_id, min(co.condition_start_date) AS index_date
+  FROM   condition_occurrence co
+  JOIN   concept_set cs ON cs.concept_id = co.condition_concept_id
+  GROUP  BY co.person_id
+)
+
+<s>-- 3. THE DENOMINATOR, plus an age criterion applied at index.</s>
+SELECT count(*) AS cohort_size
+FROM   indexed i
+JOIN   person p              ON p.person_id = i.person_id
+JOIN   <b>observation_period</b> op ON op.person_id = i.person_id
+WHERE  <i>date_diff('year', op.observation_period_start_date,
+                        op.observation_period_end_date) >= 1</i>
+  AND  <i>year(i.index_date) - p.year_of_birth >= 18</i>;</pre>
+    </div>
+
+    <p>Three ideas generalise to every study you will ever write:</p>
+    <ul>
+      <li><strong>The concept set.</strong> Asking for one ancestor returns every descendant — including forms you had not thought of. Raw EHR data can never do this.</li>
+      <li><strong>The index date.</strong> Nearly every cohort is anchored to a first occurrence. Follow-up, outcomes and washout windows are all measured from it.</li>
+      <li><strong>The denominator.</strong> The <code>observation_period</code> join is what makes the count a rate rather than a tally.</li>
+    </ul>
+
+    <div class="aside">Written this way, the same SQL runs unchanged against any OMOP database on earth. That portability is the reason the standard exists, and the reason a national programme like AHDEN is worth building.</div>
+  </div>
+</section>
+
+<!-- ================= 8 ================= -->
+<section class="module" id="m8">
+  <div class="module-head">
+    <div class="module-num">10</div>
+    <div>
+      <h2>What FHIR is for, beyond our ETL</h2>
+      <p class="sub">We used it as a file format. That is the smallest thing it does.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <h3>SMART on FHIR — how an app gets inside a hospital</h3>
+    <p>The single most commercially important thing in this module. SMART is a profile of OAuth2 that defines how a third-party application launches <em>inside</em> an EHR with permission to read a patient's data.</p>
+
+    <p>The flow: a clinician is looking at a patient in Epic and clicks your app. Epic redirects to your app with a <code>launch</code> token and the address of its authorisation server. Your app redirects the user to that server, which authenticates them and asks consent for the <strong>scopes</strong> you requested. You receive an access token — and crucially a <em>launch context</em> telling you which patient is on screen, so the clinician does not have to search again.</p>
+
+    <div class="code">
+      <div class="cap">scopes — the permission grammar</div>
+<pre><b>patient/Observation.rs</b>   read+search Observations for the ONE patient in context
+<b>user/Patient.rs</b>          read+search any patient this USER may see
+<b>system/*.rs</b>              backend service, no user — for bulk pipelines
+<b>offline_access</b>           issue a refresh token so access outlives the session</pre>
+    </div>
+
+    <p>Why it matters: this is the mechanism by which independent software is permitted into clinical workflow at all. Without it you are asking a hospital for a database extract, which is a procurement negotiation rather than an install.</p>
+
+    <h3>Bulk FHIR — population-scale export</h3>
+    <p>The REST API hands you one patient at a time, which is hopeless for building a warehouse. Bulk Data (often written <code>$export</code>) is an asynchronous operation: you ask for a whole population, the server works in the background, and you poll until it hands you a set of newline-delimited JSON files, one per resource type.</p>
+
+    <p><strong>This is the realistic starting point for an OMOP build from a live EHR.</strong> The pipeline we wrote consumes Synthea files; pointed at a Bulk export it would do the same job against real data.</p>
+
+    <h3>CDS Hooks — decision support at the point of care</h3>
+    <p>A different shape entirely: instead of your app being opened, the EHR calls <em>you</em>. At defined moments — <code>patient-view</code>, <code>order-sign</code>, <code>medication-prescribe</code> — it posts context to your service, which may return "cards": a warning, a suggestion, or a link. This is how a risk model actually reaches a clinician rather than sitting in a dashboard nobody opens.</p>
+
+    <h3>Implementation Guides — see Module 12</h3>
+    <p>The mechanism by which base FHIR is narrowed into something two systems can actually interoperate with. AU Core is Australia's, and it deserves its own section.</p>
+  </div>
+</section>
+
+<!-- ================= 9 ================= -->
+<section class="module" id="m9">
+  <div class="module-head">
+    <div class="module-num">11</div>
+    <div>
+      <h2>What OMOP is for, beyond our ETL</h2>
+      <p class="sub">We built the database. Here is what people do with one.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>OHDSI organises analysis into three kinds of question. Nearly every study is one of them.</p>
+
+    <h3>1 · Characterisation — "what is in this data?"</h3>
+    <p>Descriptive. How many patients, what conditions, what drugs, what does the age distribution look like, how much is missing. Sounds unglamorous; it is where every project actually starts, because you cannot design a study against data whose shape you do not know.</p>
+    <p>Tooling: <strong>Achilles</strong> computes several thousand summary statistics over a CDM; <strong>Data Quality Dashboard</strong> runs a large standardised check suite — our 21-check suite is a small hand-built version of the same idea.</p>
+
+    <h3>2 · Population-level estimation — "does X cause Y?"</h3>
+    <p>Comparative effectiveness and safety. Does this drug raise the risk of that outcome, relative to an alternative? This is where the serious methodology lives: new-user cohort designs, propensity score matching to balance confounders, negative control outcomes to detect residual bias, self-controlled case series.</p>
+    <p>Tooling: the <strong>HADES</strong> family of R packages (<code>CohortMethod</code>, <code>SelfControlledCaseSeries</code>, <code>CohortIncidence</code>).</p>
+
+    <h3>3 · Patient-level prediction — "what will happen to this person?"</h3>
+    <p>Machine learning over the CDM: given everything known at an index date, predict an outcome within a horizon. The value of the CDM here is that the feature-extraction code is shared, so a model developed at one site can be externally validated at another without rewriting the data layer — the step most clinical ML never manages.</p>
+
+    <h3>The thing that makes it all worthwhile: network studies</h3>
+    <p>This is OMOP's real payoff, and it is worth stating plainly. A researcher writes a study package once. It is shipped to twenty institutions in a dozen countries. Each runs it against <em>their own</em> CDM behind their own firewall, and returns only aggregate results.</p>
+
+    <p><strong>No patient-level data ever leaves any hospital.</strong> That is what makes multi-national observational research legally and ethically possible at all — and it only works because every site's data is in the same shape with the same concept ids. Every convention in this course exists to serve that.</p>
+
+    <h3>ATLAS — the tool you should look at next</h3>
+    <p>A web application over a CDM. You build concept sets by searching the vocabulary, assemble cohort definitions through a UI, and it generates the SQL. Worth exploring precisely because you have now written that SQL by hand and will recognise what it is doing.</p>
+
+    <h3>From Module 07's "not covered", what is actually worth learning</h3>
+    <ul>
+      <li><strong>Era tables</strong> (<code>drug_era</code>, <code>condition_era</code>) — collapse overlapping records into continuous exposure periods. Usually what you actually want to analyse: twelve consecutive prescriptions are one treatment episode, not twelve events. Learn these early; they are cheap and change how you think.</li>
+      <li><strong>The Data Quality Dashboard</strong> — the standardised version of what we hand-built. Highest value per hour of anything on this list.</li>
+      <li><strong>Propensity score methods</strong> — if you want to make causal claims rather than describe. Genuinely hard, and the place where observational research earns or loses its credibility.</li>
+      <li><strong>SMART on FHIR</strong>, on the other side — if you want to <em>ship</em> rather than analyse.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 10 ================= -->
+<section class="module" id="m10">
+  <div class="module-head">
+    <div class="module-num">12</div>
+    <div>
+      <h2>Profiles, AU Core, and Australia</h2>
+      <p class="sub">What "constrained profile" means, and why base FHIR alone is not enough.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <h3>The problem with base FHIR</h3>
+    <p>FHIR must work for a GP clinic in Adelaide, a US insurer and a Kenyan public health registry. To manage that, the base specification makes <strong>almost every field optional</strong>. A <code>Patient</code> resource with nothing but an <code>id</code> is valid FHIR.</p>
+
+    <p>Which creates the real problem: <em>two systems can both be perfectly valid FHIR and still be unable to exchange anything useful.</em> One sends a name and no identifier; the other requires an identifier and ignores names. Both conform. Neither interoperates.</p>
+
+    <h3>What a profile does</h3>
+    <p>A <strong>profile</strong> narrows the base specification. It can only ever make the rules <em>stricter</em> — never add anything base FHIR forbids. Four things it does:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Constraint</th><th>Meaning</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Cardinality</strong></td><td>Make an optional field required, or limit repeats.</td><td>"<code>Patient.name</code> must be present" (base: optional)</td></tr>
+          <tr><td><strong>Terminology binding</strong></td><td>Restrict which code system a coded field may use.</td><td>"<code>Condition.code</code> must use SNOMED CT-AU"</td></tr>
+          <tr><td><strong>Extensions</strong></td><td>Add a field base FHIR lacks, in a defined way.</td><td>US Core's race extension</td></tr>
+          <tr><td><strong>Invariants</strong></td><td>Rules across fields.</td><td>"if deceased, a date must be present"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="aside">Think of base FHIR as a form where every field is optional and every dropdown accepts free text. A profile is that same form with the mandatory fields marked and the dropdowns restricted to an agreed list. Nothing new is invented; choice is removed — and removing choice is precisely what makes two systems able to talk.</div>
+
+    <h3>What an Implementation Guide is</h3>
+    <p>A published package of profiles plus value sets, examples, and narrative documentation, covering a whole use case or jurisdiction. <strong>AU Core is Australia's</strong>, produced by the <strong>Sparked</strong> accelerator — CSIRO with HL7 Australia. It states what an Australian system must support to be considered interoperable here: which resources, which fields are mandatory, which Australian terminologies to use.</p>
+
+    <p>Its US equivalent is US Core. <strong>They are not compatible</strong>, and this is exactly why the race/ethnicity decision in our pipeline matters: US Core defines a race extension, AU Core does not, because Australia records Indigenous status under a different model that does not map onto OMOP's race/ethnicity pair.</p>
+
+    <h3>The jurisdictional mapping</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>United States</th><th>Australia</th></tr></thead>
+        <tbody>
+          <tr><td>US Core profiles</td><td><strong>AU Core</strong> — Sparked, CSIRO with HL7 Australia</td></tr>
+          <tr><td>USCDI data classes</td><td>AU Core data set</td></tr>
+          <tr><td>HIPAA</td><td>Privacy Act 1988; Australian Privacy Principles</td></tr>
+          <tr><td>ICD-10-CM</td><td>ICD-10-AM</td></tr>
+          <tr><td>CPT / HCPCS</td><td>MBS item numbers</td></tr>
+          <tr><td>RxNorm</td><td>AMT — Australian Medicines Terminology</td></tr>
+          <tr><td>SNOMED CT US Edition</td><td>SNOMED CT-AU</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>OMOP is a growth area in Australia right now.</strong> The Australian Health Data Evidence Network is deploying OMOP CDM across Australian hospitals under a multi-year national initiative, with the AIHW standardising national admitted-patient data to the CDM. There is an OHDSI Australia chapter. These skills map onto work being funded and staffed today.</p>
+  </div>
+</section>
+
+<!-- ================= references ================= -->
+<section class="module" id="refs">
+  <div class="module-head">
+    <div class="module-num">▤</div>
+    <div>
+      <h2>Where to look things up</h2>
+      <p class="sub">You asked how to learn what all these fields mean. These are the answers.</p>
+    </div>
+  </div>
+
+  <div class="body">
+    <p>Every table and column in the CDM is formally documented. When you meet an unfamiliar field, you are meant to look it up rather than infer it — the specification is the reference, and it is good.</p>
+  </div>
+
+  <div class="refs" style="margin-top:var(--s3)">
+    <div class="ref">
+      <span class="kind">Specification</span>
+      <h4><a href="https://ohdsi.github.io/CommonDataModel/cdm54.html">OMOP CDM 5.4 spec</a></h4>
+      <p>Every table, every column, its type, whether it is required, and what belongs in it. The direct answer to "what does this field mean". Bookmark it.</p>
+    </div>
+    <div class="ref">
+      <span class="kind">Textbook · free</span>
+      <h4><a href="https://book.ohdsi.org/">The Book of OHDSI</a></h4>
+      <p>The canonical text for the whole ecosystem — data model, vocabulary, cohorts, study methods. Read chapters 4–6 for everything in Modules 04–09 here.</p>
+    </div>
+    <div class="ref">
+      <span class="kind">Browser</span>
+      <h4><a href="https://athena.ohdsi.org/">Athena</a></h4>
+      <p>Search the vocabulary in a browser — concepts, domains, standard status, relationships. The fastest way to build intuition; use it alongside your SQL.</p>
+    </div>
+    <div class="ref">
+      <span class="kind">Specification</span>
+      <h4><a href="https://hl7.org/fhir/R4/">FHIR R4 spec</a></h4>
+      <p>Every resource type with its fields, cardinalities and bound value sets. Dense but authoritative — go straight to the resource page you need.</p>
+    </div>
+    <div class="ref">
+      <span class="kind">Implementation guide</span>
+      <h4><a href="https://hl7.org.au/fhir/core/">AU Core</a></h4>
+      <p>Australia's profiles. Read the Patient profile beside the base FHIR one to see exactly what "constrained" means in practice.</p>
+    </div>
+    <div class="ref">
+      <span class="kind">Course · free</span>
+      <h4><a href="https://academy.ehden.eu/">EHDEN Academy</a></h4>
+      <p>Structured OMOP courses — CDM and vocabularies, ETL, OHDSI infrastructure. Course completion, not certification, but the standard curriculum.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= glossary ================= -->
+<section class="module" id="gloss">
+  <div class="module-head">
+    <div class="module-num">△</div>
+    <div>
+      <h2>Glossary</h2>
+      <p class="sub">Every term this course uses without assuming you have met it.</p>
+    </div>
+  </div>
+
+  <dl class="glossary">
+    <div><dt>Resource</dt><dd>The unit of FHIR. A JSON object with a <code>resourceType</code> and an <code>id</code>. About 150 types exist.</dd></div>
+    <div><dt>Bundle</dt><dd>A FHIR envelope holding a list of resources. A container, not a record.</dd></div>
+    <div><dt>Reference</dt><dd>A pointer from one resource to another. Three forms: <code>Type/id</code>, an absolute URL, or <code>urn:uuid:</code> within a bundle.</dd></div>
+    <div><dt>CodeableConcept</dt><dd>FHIR's carrier for clinical meaning: an array of <code>{system, code, display}</code> plus free text.</dd></div>
+    <div><dt>Profile</dt><dd>A constrained version of a FHIR resource — makes optional fields required, restricts code systems, adds extensions.</dd></div>
+    <div><dt>Implementation Guide</dt><dd>A published package of profiles for a jurisdiction or use case. AU Core is Australia's.</dd></div>
+    <div><dt>SMART on FHIR</dt><dd>The OAuth2 profile letting third-party apps launch inside an EHR with scoped access to a patient in context.</dd></div>
+    <div><dt>Bulk FHIR</dt><dd>Asynchronous population-scale export (<code>$export</code>). The realistic input to an OMOP build.</dd></div>
+    <div><dt>CDM</dt><dd>Common Data Model. The OMOP schema. Current version 5.4.</dd></div>
+    <div><dt>Concept</dt><dd>One distinct clinical idea — a disease, a test, a drug, a unit. The row in the <code>concept</code> table.</dd></div>
+    <div><dt>concept_id</dt><dd>OMOP's integer identifier for a concept. Arbitrary, and meaningful only inside OMOP.</dd></div>
+    <div><dt>concept_code</dt><dd>The code as it exists in its <em>source</em> vocabulary — e.g. SNOMED <code>59621000</code>. The bridge back to the source system.</dd></div>
+    <div><dt>Standard concept</dt><dd>The one concept OMOP designates canonical for an idea (<code>standard_concept = 'S'</code>). Cohorts match only these.</dd></div>
+    <div><dt>Domain</dt><dd>A concept's category — Condition, Measurement, Drug, Observation, Procedure. Determines the destination table.</dd></div>
+    <div><dt>Maps to</dt><dd>A row in <code>concept_relationship</code> meaning "when you receive concept 1, store concept 2 instead".</dd></div>
+    <div><dt>Ancestor / descendant</dt><dd>Positions in the <em>is-a</em> hierarchy. Ancestors are more general, descendants more specific. Every concept is its own ancestor at level 0.</dd></div>
+    <div><dt>concept_ancestor</dt><dd>The precomputed transitive closure of the hierarchy — every ancestor–descendant pair at every distance.</dd></div>
+    <div><dt>Surrogate key</dt><dd>An identifier you invent (<code>person_id = 1</code>) standing in for a source id you cannot use. The original is kept in <code>*_source_value</code>.</dd></div>
+    <div><dt>Numerator / denominator</dt><dd>Top and bottom of a rate: how many had the thing, over how many could have had it.</dd></div>
+    <div><dt>observation_period</dt><dd>The window during which a person was observable. The denominator. Derived, never given.</dd></div>
+    <div><dt>Cohort</dt><dd>A set of people meeting criteria over a period. The atom of observational research.</dd></div>
+    <div><dt>Index date</dt><dd>The anchor event a cohort is measured from — usually a first occurrence.</dd></div>
+    <div><dt>ETL</dt><dd>Extract, Transform, Load. Read from the source, reshape, write to the target. What this project is.</dd></div>
+    <div><dt>Athena</dt><dd>OHDSI's vocabulary distribution service. Free account; some vocabularies need a UMLS licence.</dd></div>
+    <div><dt>ATLAS</dt><dd>The OHDSI web application for building concept sets and cohort definitions over a CDM.</dd></div>
+    <div><dt>HADES</dt><dd>The OHDSI R package family for the statistical analyses.</dd></div>
+    <div><dt>OHDSI</dt><dd>Observational Health Data Sciences and Informatics. The community that maintains OMOP.</dd></div>
+    <div><dt>AHDEN</dt><dd>Australian Health Data Evidence Network — running Australia's national OMOP deployment.</dd></div>
+  </dl>
+</section>
+
+<p class="foot">Worked against Synthea FHIR R4 sample data (1,180 synthetic patients, no real patient data) loaded into OMOP CDM 5.4. All figures quoted are from that run: 331,000 FHIR resources in, 332,000 CDM rows out, 21 of 21 data-quality checks passing. Unmapped rates reflect a 31,976-concept development vocabulary, not the full Athena release.</p>
+
+</div>
