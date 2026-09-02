@@ -81,6 +81,46 @@ CHECKS: list[Check] = [
         "WHERE day_of_birth IS NOT NULL AND day_of_birth NOT BETWEEN 1 AND 31",
     ),
     Check(
+        "condition_person_fk",
+        "conformance",
+        "every condition_occurrence.person_id exists in person",
+        "SELECT count(*) FROM condition_occurrence co "
+        "LEFT JOIN person p ON p.person_id = co.person_id "
+        "WHERE p.person_id IS NULL",
+    ),
+    Check(
+        "condition_concept_is_standard",
+        "conformance",
+        "condition_concept_id must be a standard concept (or 0)",
+        "SELECT count(*) FROM condition_occurrence co "
+        "JOIN concept c ON c.concept_id = co.condition_concept_id "
+        "WHERE co.condition_concept_id <> 0 AND c.standard_concept IS DISTINCT FROM 'S'",
+    ),
+    Check(
+        "condition_concept_in_condition_domain",
+        "conformance",
+        "condition_concept_id must be a Condition-domain concept (or 0)",
+        "SELECT count(*) FROM condition_occurrence co "
+        "JOIN concept c ON c.concept_id = co.condition_concept_id "
+        "WHERE co.condition_concept_id <> 0 AND c.domain_id <> 'Condition'",
+    ),
+    Check(
+        "condition_end_after_start",
+        "plausibility",
+        "condition_end_date must not precede condition_start_date",
+        "SELECT count(*) FROM condition_occurrence "
+        "WHERE condition_end_date IS NOT NULL "
+        "AND condition_end_date < condition_start_date",
+    ),
+    Check(
+        "condition_start_after_birth",
+        "plausibility",
+        "a condition cannot start before the person was born",
+        "SELECT count(*) FROM condition_occurrence co "
+        "JOIN person p ON p.person_id = co.person_id "
+        "WHERE year(co.condition_start_date) < p.year_of_birth",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",
@@ -103,12 +143,17 @@ def unmapped_rates(con) -> list[tuple[str, int, int, float]]:
     conformance check while mapping almost nothing, and only this figure shows
     it.
     """
-    total = con.execute("SELECT count(*) FROM person").fetchone()[0]
     rows = []
-    for column in ("gender_concept_id", "race_concept_id", "ethnicity_concept_id"):
+    for table, column in (
+        ("person", "gender_concept_id"),
+        ("person", "race_concept_id"),
+        ("person", "ethnicity_concept_id"),
+        ("condition_occurrence", "condition_concept_id"),
+    ):
+        total = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         unmapped = con.execute(
-            f"SELECT count(*) FROM person WHERE {column} = 0"
+            f"SELECT count(*) FROM {table} WHERE {column} = 0"
         ).fetchone()[0]
         pct = (unmapped / total * 100) if total else 0.0
-        rows.append((column, unmapped, total, pct))
+        rows.append((f"{table}.{column}", unmapped, total, pct))
     return rows

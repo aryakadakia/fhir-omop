@@ -11,12 +11,23 @@ decisions are documented at the point they are made.
 
 ## Status
 
-Implemented: `Patient` → `person`, with vocabulary lookup, provenance tracking,
-and a data-quality suite.
+Implemented: `Patient` → `person`, `Condition` → `condition_occurrence` /
+`observation` (domain-routed), with two-step standard-concept resolution,
+provenance tracking, and a 13-check data-quality suite.
 
-Not yet implemented: `Condition` → `condition_occurrence`, `Observation` →
-`measurement` / `observation`, `Encounter` → `visit_occurrence`,
-`MedicationRequest` → `drug_exposure`, `observation_period` derivation.
+Run against the Synthea FHIR R4 sample (1,180 patients):
+
+```
+person                 1180
+condition_occurrence   7904
+observation             862   <- domain-routed out of condition_occurrence
+_etl_provenance        9946
+13/13 data-quality checks pass
+```
+
+Not yet implemented: `Observation` → `measurement`, `Encounter` →
+`visit_occurrence`, `MedicationRequest` → `drug_exposure`,
+`observation_period` derivation.
 
 ## Quick start
 
@@ -47,6 +58,42 @@ FHIR bundles ──► map_patient() ──► person ──► data-quality che
   plus a non-standard `_etl_provenance` table so every CDM row can be traced
   back to the FHIR resource that produced it.
 
+## Domain routing: the rule that is easy to miss
+
+**A FHIR `Condition` does not always become a `condition_occurrence`.** OMOP
+decides the destination table from the `domain_id` of the resolved standard
+concept, not from the source resource type.
+
+In the Synthea corpus, 862 of 8,766 `Condition` resources carry concepts that
+OMOP places in the Observation domain:
+
+| concept | domain | rows |
+|---|---|---|
+| Normal pregnancy | Observation | 516 |
+| Body mass index 30+ - obesity | Observation | 346 |
+
+Both are clinically reasonable things to send as a FHIR `Condition`. Both
+belong in `observation` under the CDM. Loading them into
+`condition_occurrence` fails silently — the rows insert, every foreign key
+resolves, and prevalence queries return a wrong denominator with no error.
+
+This was caught by the `condition_concept_in_condition_domain` check rather
+than by reading the spec, which is the argument for writing the checks first.
+
+## Two-step concept resolution
+
+Resolving a source code takes two steps, and the second is the one that gets
+dropped:
+
+1. find the concept for `(code, vocabulary_id)`
+2. if it is **not standard**, follow the `Maps to` relationship
+
+388 conditions in this corpus resolve to non-standard `Prediabetes`
+(`concept_id 40316773`) and must be redirected to its standard target. Used
+directly, those rows would never match a cohort definition — cohort
+definitions are written against standard concepts — so the patients would be
+silently invisible rather than rejected.
+
 ## Three decisions worth reading
 
 **1. Unmapped values become concept_id 0, never a guess.**
@@ -73,6 +120,13 @@ dataset built otherwise would be an artifact of the ETL, not of the population.
 The `unmapped rates` block in the ETL output exists for exactly this reason: a
 pipeline can pass every conformance check while mapping almost nothing, and
 only that figure reveals it.
+
+**Current unmapped rate for conditions is 35.6%**, because the development
+vocabulary is a Synthea-derived subset carrying only 834 SNOMED concepts. This
+is a limitation of the vocabulary, not of the mapping logic — loading the full
+[Athena](https://athena.ohdsi.org/) vocabulary is expected to resolve most of
+it. It is reported rather than hidden, because an unmapped rate that is quietly
+excluded from the report is how a broken ETL passes review.
 
 ## Vocabulary
 

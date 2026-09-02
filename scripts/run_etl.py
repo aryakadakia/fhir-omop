@@ -40,13 +40,16 @@ def main() -> int:
 
     if report.rejected:
         print("\n--- rejected resources ---")
-        for source_id, reason in report.rejected:
+        for source_id, reason in report.rejected[:8]:
             print(f"  {source_id}: {reason}")
 
+    if report.rejected:
+        print(f"  ... {len(report.rejected)} total")
+
     if report.issues:
-        print("\n--- mapping issues ---")
-        for source_id, issue in report.issues:
-            print(f"  {source_id}: {issue}")
+        print("\n--- mapping issues (by frequency) ---")
+        for issue, count in sorted(report.issues.items(), key=lambda kv: -kv[1])[:12]:
+            print(f"  {count:>6}  {issue}")
 
     con = duckdb.connect(str(args.out), read_only=True)
 
@@ -60,7 +63,7 @@ def main() -> int:
 
     print("\n=== unmapped rates ===")
     for column, unmapped, total, pct in dq.unmapped_rates(con):
-        print(f"  {column:<24} {unmapped}/{total}  ({pct:.0f}% unmapped)")
+        print(f"  {column:<45} {unmapped}/{total}  ({pct:.1f}% unmapped)")
 
     con.close()
 

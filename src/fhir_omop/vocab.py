@@ -67,3 +67,120 @@ def map_gender(fhir_gender: str | None) -> int:
     if fhir_gender is None:
         return NO_MATCHING_CONCEPT
     return FHIR_GENDER_TO_OMOP.get(fhir_gender.lower(), NO_MATCHING_CONCEPT)
+
+
+# FHIR identifies code systems by URI; OMOP identifies them by vocabulary_id.
+# Translating between the two is a required step in every FHIR->OMOP mapping.
+#   http://hl7.org/fhir/R4/terminologies-systems.html
+FHIR_SYSTEM_TO_OMOP_VOCABULARY = {
+    "http://snomed.info/sct": "SNOMED",
+    "http://loinc.org": "LOINC",
+    "http://www.nlm.nih.gov/research/umls/rxnorm": "RxNorm",
+    "http://hl7.org/fhir/sid/icd-10": "ICD10",
+    "http://hl7.org/fhir/sid/icd-10-cm": "ICD10CM",
+    "http://unitsofmeasure.org": "UCUM",
+    # Australian systems, for when this runs against AU Core rather than
+    # Synthea. AMT is the Australian Medicines Terminology.
+    "http://snomed.info/sct/32506021000036107": "SNOMED",
+}
+
+
+def omop_vocabulary_for(system: str | None) -> str | None:
+    """Translate a FHIR CodeSystem URI to an OMOP vocabulary_id."""
+    if system is None:
+        return None
+    return FHIR_SYSTEM_TO_OMOP_VOCABULARY.get(system.rstrip("/"))
+
+
+class ConceptResolution:
+    """The result of resolving a source code, keeping both concept ids.
+
+    OMOP deliberately stores two ids for every coded fact:
+      source_concept_id   -- the concept for the code as it was received
+      concept_id          -- the STANDARD concept used for analysis
+    They differ whenever the source code is non-standard. Keeping both is what
+    makes an OMOP dataset auditable back to the source system.
+    """
+
+    __slots__ = ("concept_id", "source_concept_id", "source_value", "note")
+
+    def __init__(self, concept_id, source_concept_id, source_value, note=None):
+        self.concept_id = concept_id
+        self.source_concept_id = source_concept_id
+        self.source_value = source_value
+        self.note = note
+
+    @property
+    def mapped(self) -> bool:
+        return self.concept_id != NO_MATCHING_CONCEPT
+
+
+def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None = None):
+    """Resolve a source code to its STANDARD OMOP concept.
+
+    Two steps, and the second is the one people forget:
+      1. find the concept for (code, vocabulary_id)
+      2. if it is not standard, follow the 'Maps to' relationship
+
+    A non-standard concept used directly in condition_concept_id will simply
+    never match a cohort definition, because cohort definitions are written
+    against standard concepts. The rows are not rejected -- they are silently
+    invisible, which is worse.
+    """
+    row = con.execute(
+        """
+        SELECT concept_id, standard_concept, domain_id
+        FROM concept WHERE concept_code = ? AND vocabulary_id = ?
+        LIMIT 1
+        """,
+        [code, vocabulary_id],
+    ).fetchone()
+
+    if row is None:
+        return ConceptResolution(
+            NO_MATCHING_CONCEPT, NO_MATCHING_CONCEPT, code,
+            f"code {code} not present in vocabulary {vocabulary_id}",
+        )
+
+    source_concept_id, standard_flag, domain_id = row
+
+    if standard_flag == "S":
+        note = None
+        if domain and domain_id != domain:
+            # A valid concept in the wrong domain is a mapping error: putting a
+            # Procedure concept in condition_concept_id corrupts the CDM.
+            note = f"concept {source_concept_id} is domain {domain_id}, expected {domain}"
+        return ConceptResolution(source_concept_id, source_concept_id, code, note)
+
+    mapped = con.execute(
+        """
+        SELECT cr.concept_id_2
+        FROM concept_relationship cr
+        JOIN concept c ON c.concept_id = cr.concept_id_2
+        WHERE cr.concept_id_1 = ?
+          AND cr.relationship_id = 'Maps to'
+          AND c.standard_concept = 'S'
+        LIMIT 1
+        """,
+        [source_concept_id],
+    ).fetchone()
+
+    if mapped is None:
+        return ConceptResolution(
+            NO_MATCHING_CONCEPT, source_concept_id, code,
+            f"non-standard concept {source_concept_id} has no 'Maps to' target",
+        )
+
+    return ConceptResolution(
+        mapped[0], source_concept_id, code,
+        f"non-standard {source_concept_id} mapped to standard {mapped[0]}",
+    )
+
+
+def concept_domain(con, concept_id: int) -> str | None:
+    """Return the domain_id of a concept -- the field that decides which CDM
+    table a coded fact belongs in."""
+    row = con.execute(
+        "SELECT domain_id FROM concept WHERE concept_id = ?", [concept_id]
+    ).fetchone()
+    return row[0] if row else None
