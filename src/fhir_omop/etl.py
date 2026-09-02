@@ -28,6 +28,7 @@ from fhir_omop.vocab import clear_caches
 from fhir_omop.mappings import observation_period
 from fhir_omop.mappings.condition import map_condition, subject_id
 from fhir_omop.mappings.drug import map_medication_request
+from fhir_omop.mappings.immunization import map_immunization, patient_id
 from fhir_omop.mappings.measurement import map_observation, reference_id
 from fhir_omop.mappings.person import map_patient
 from fhir_omop.mappings.visit import map_encounter
@@ -242,6 +243,25 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
             writer.add("drug_exposure", mapped.as_row())
             writer.add("_etl_provenance",
                        ("drug_exposure", did, path.name, "MedicationRequest", mapped.source_id))
+            report.issues.update(mapped.issues)
+
+        # ---- pass 3d: immunizations -> drug_exposure ----------------------
+        for imm in iter_resources(doc, "Immunization"):
+            report.seen["Immunization"] += 1
+            pid = person_index.get(patient_id(imm))
+            if pid is None:
+                report.rejected.append((imm.get("id", "?"), "Immunization: unresolved patient"))
+                continue
+            vid = visit_index.get(reference_id(imm.get("encounter")))
+            mapped = map_immunization(con, imm, ids["drug_exposure"] + 1, pid, vid)
+            if mapped is None:
+                report.rejected.append((imm.get("id", "?"), "Immunization: not given, or no usable date"))
+                continue
+            did = next_id("drug_exposure")
+            mapped.drug_exposure_id = did
+            writer.add("drug_exposure", mapped.as_row())
+            writer.add("_etl_provenance",
+                       ("drug_exposure", did, path.name, "Immunization", mapped.source_id))
             report.issues.update(mapped.issues)
 
     writer.flush_all()

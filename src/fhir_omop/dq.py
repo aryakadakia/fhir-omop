@@ -218,6 +218,13 @@ CHECKS: list[Check] = [
         "WHERE co.visit_occurrence_id IS NOT NULL AND v.visit_occurrence_id IS NULL",
     ),
     Check(
+        "drug_end_not_before_start",
+        "plausibility",
+        "drug_exposure_end_date must not precede its start",
+        "SELECT count(*) FROM drug_exposure "
+        "WHERE drug_exposure_end_date < drug_exposure_start_date",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",

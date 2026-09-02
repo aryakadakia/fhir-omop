@@ -79,6 +79,7 @@ FHIR_SYSTEM_TO_OMOP_VOCABULARY = {
     "http://hl7.org/fhir/sid/icd-10": "ICD10",
     "http://hl7.org/fhir/sid/icd-10-cm": "ICD10CM",
     "http://unitsofmeasure.org": "UCUM",
+    "http://hl7.org/fhir/sid/cvx": "CVX",
     # Australian systems, for when this runs against AU Core rather than
     # Synthea. AMT is the Australian Medicines Terminology.
     "http://snomed.info/sct/32506021000036107": "SNOMED",
