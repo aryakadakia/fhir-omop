@@ -13,4 +13,4 @@ data/fhir/bulk/
 .DS_Store
 
 # Downloaded source data — fetch it, don't commit it (see README)
-data/fhir/*.zip
+*.zip
