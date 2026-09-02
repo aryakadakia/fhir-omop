@@ -121,6 +121,65 @@ CHECKS: list[Check] = [
         "WHERE year(co.condition_start_date) < p.year_of_birth",
     ),
     Check(
+        "every_person_has_observation_period",
+        "completeness",
+        "every person must have an observation period (the denominator)",
+        "SELECT count(*) FROM person p LEFT JOIN observation_period op "
+        "ON op.person_id = p.person_id WHERE op.person_id IS NULL",
+    ),
+    Check(
+        "observation_period_end_after_start",
+        "plausibility",
+        "observation_period_end_date must not precede its start",
+        "SELECT count(*) FROM observation_period "
+        "WHERE observation_period_end_date < observation_period_start_date",
+    ),
+    Check(
+        "events_within_observation_period",
+        "plausibility",
+        "condition events must fall inside the person's observation period",
+        "SELECT count(*) FROM condition_occurrence co "
+        "JOIN observation_period op ON op.person_id = co.person_id "
+        "WHERE co.condition_start_date < op.observation_period_start_date "
+        "   OR co.condition_start_date > op.observation_period_end_date",
+    ),
+    Check(
+        "visit_end_after_start",
+        "plausibility",
+        "visit_end_date must not precede visit_start_date",
+        "SELECT count(*) FROM visit_occurrence WHERE visit_end_date < visit_start_date",
+    ),
+    Check(
+        "measurement_person_fk",
+        "conformance",
+        "every measurement.person_id exists in person",
+        "SELECT count(*) FROM measurement m LEFT JOIN person p "
+        "ON p.person_id = m.person_id WHERE p.person_id IS NULL",
+    ),
+    Check(
+        "measurement_concept_in_measurement_domain",
+        "conformance",
+        "measurement_concept_id must be a Measurement-domain concept (or 0)",
+        "SELECT count(*) FROM measurement m JOIN concept c "
+        "ON c.concept_id = m.measurement_concept_id "
+        "WHERE m.measurement_concept_id <> 0 AND c.domain_id <> 'Measurement'",
+    ),
+    Check(
+        "drug_person_fk",
+        "conformance",
+        "every drug_exposure.person_id exists in person",
+        "SELECT count(*) FROM drug_exposure d LEFT JOIN person p "
+        "ON p.person_id = d.person_id WHERE p.person_id IS NULL",
+    ),
+    Check(
+        "visit_fk_resolves",
+        "conformance",
+        "measurement.visit_occurrence_id must resolve when present",
+        "SELECT count(*) FROM measurement m LEFT JOIN visit_occurrence v "
+        "ON v.visit_occurrence_id = m.visit_occurrence_id "
+        "WHERE m.visit_occurrence_id IS NOT NULL AND v.visit_occurrence_id IS NULL",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",
@@ -149,6 +208,10 @@ def unmapped_rates(con) -> list[tuple[str, int, int, float]]:
         ("person", "race_concept_id"),
         ("person", "ethnicity_concept_id"),
         ("condition_occurrence", "condition_concept_id"),
+        ("measurement", "measurement_concept_id"),
+        ("observation", "observation_concept_id"),
+        ("drug_exposure", "drug_concept_id"),
+        ("visit_occurrence", "visit_concept_id"),
     ):
         total = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         unmapped = con.execute(

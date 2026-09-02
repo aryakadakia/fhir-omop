@@ -115,6 +115,21 @@ class ConceptResolution:
         return self.concept_id != NO_MATCHING_CONCEPT
 
 
+# Concept resolution is by far the hottest path in the ETL: a quarter of a
+# million resources resolve against roughly a thousand distinct codes. Caching
+# turns two SQL round-trips per row into a dict hit. The cache is keyed on
+# (code, vocabulary_id) and is safe because `concept` is read-only during a
+# load.
+_RESOLUTION_CACHE: dict[tuple[str, str], "ConceptResolution"] = {}
+_DOMAIN_CACHE: dict[int, str | None] = {}
+
+
+def clear_caches() -> None:
+    """Drop memoised lookups. Call when switching to a different vocabulary."""
+    _RESOLUTION_CACHE.clear()
+    _DOMAIN_CACHE.clear()
+
+
 def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None = None):
     """Resolve a source code to its STANDARD OMOP concept.
 
@@ -127,6 +142,11 @@ def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None =
     against standard concepts. The rows are not rejected -- they are silently
     invisible, which is worse.
     """
+    cache_key = (code, vocabulary_id)
+    cached = _RESOLUTION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     row = con.execute(
         """
         SELECT concept_id, standard_concept, domain_id
@@ -137,10 +157,12 @@ def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None =
     ).fetchone()
 
     if row is None:
-        return ConceptResolution(
+        result = ConceptResolution(
             NO_MATCHING_CONCEPT, NO_MATCHING_CONCEPT, code,
             f"code {code} not present in vocabulary {vocabulary_id}",
         )
+        _RESOLUTION_CACHE[cache_key] = result
+        return result
 
     source_concept_id, standard_flag, domain_id = row
 
@@ -150,7 +172,9 @@ def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None =
             # A valid concept in the wrong domain is a mapping error: putting a
             # Procedure concept in condition_concept_id corrupts the CDM.
             note = f"concept {source_concept_id} is domain {domain_id}, expected {domain}"
-        return ConceptResolution(source_concept_id, source_concept_id, code, note)
+        result = ConceptResolution(source_concept_id, source_concept_id, code, note)
+        _RESOLUTION_CACHE[cache_key] = result
+        return result
 
     mapped = con.execute(
         """
@@ -166,21 +190,27 @@ def resolve_to_standard(con, code: str, vocabulary_id: str, domain: str | None =
     ).fetchone()
 
     if mapped is None:
-        return ConceptResolution(
+        result = ConceptResolution(
             NO_MATCHING_CONCEPT, source_concept_id, code,
             f"non-standard concept {source_concept_id} has no 'Maps to' target",
         )
-
-    return ConceptResolution(
-        mapped[0], source_concept_id, code,
-        f"non-standard {source_concept_id} mapped to standard {mapped[0]}",
-    )
+    else:
+        result = ConceptResolution(
+            mapped[0], source_concept_id, code,
+            f"non-standard {source_concept_id} mapped to standard {mapped[0]}",
+        )
+    _RESOLUTION_CACHE[cache_key] = result
+    return result
 
 
 def concept_domain(con, concept_id: int) -> str | None:
     """Return the domain_id of a concept -- the field that decides which CDM
     table a coded fact belongs in."""
+    if concept_id in _DOMAIN_CACHE:
+        return _DOMAIN_CACHE[concept_id]
     row = con.execute(
         "SELECT domain_id FROM concept WHERE concept_id = ?", [concept_id]
     ).fetchone()
-    return row[0] if row else None
+    domain = row[0] if row else None
+    _DOMAIN_CACHE[concept_id] = domain
+    return domain

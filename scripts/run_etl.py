@@ -48,8 +48,8 @@ def main() -> int:
 
     if report.issues:
         print("\n--- mapping issues (by frequency) ---")
-        for issue, count in sorted(report.issues.items(), key=lambda kv: -kv[1])[:12]:
-            print(f"  {count:>6}  {issue}")
+        for issue, count in report.issues.most_common(10):
+            print(f"  {count:>7}  {issue}")
 
     con = duckdb.connect(str(args.out), read_only=True)
 

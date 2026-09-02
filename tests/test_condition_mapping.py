@@ -3,6 +3,17 @@
 import duckdb
 import pytest
 
+from fhir_omop.vocab import clear_caches
+
+
+@pytest.fixture(autouse=True)
+def _isolate_concept_cache():
+    """Concept resolution is memoised module-level; each test needs a clean
+    cache or results leak between fixtures."""
+    clear_caches()
+    yield
+    clear_caches()
+
 from fhir_omop import ddl
 from fhir_omop.mappings.condition import map_condition, subject_id
 from fhir_omop.vocab import NO_MATCHING_CONCEPT

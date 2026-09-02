@@ -102,4 +102,108 @@ CREATE TABLE IF NOT EXISTS observation (
 );
 """
 
-ALL = [PERSON, CONDITION_OCCURRENCE, OBSERVATION, ETL_PROVENANCE]
+# CDM 5.4 `visit_occurrence`. Visits are the spine of the CDM: most clinical
+# facts carry a visit_occurrence_id, and many analyses are visit-anchored.
+VISIT_OCCURRENCE = """
+CREATE TABLE IF NOT EXISTS visit_occurrence (
+    visit_occurrence_id           BIGINT  NOT NULL,
+    person_id                     BIGINT  NOT NULL,
+    visit_concept_id              INTEGER NOT NULL,
+    visit_start_date              DATE    NOT NULL,
+    visit_start_datetime          TIMESTAMP,
+    visit_end_date                DATE    NOT NULL,
+    visit_end_datetime            TIMESTAMP,
+    visit_type_concept_id         INTEGER NOT NULL,
+    provider_id                   BIGINT,
+    care_site_id                  BIGINT,
+    visit_source_value            VARCHAR,
+    visit_source_concept_id       INTEGER,
+    admitted_from_concept_id      INTEGER,
+    admitted_from_source_value    VARCHAR,
+    discharged_to_concept_id      INTEGER,
+    discharged_to_source_value    VARCHAR,
+    preceding_visit_occurrence_id BIGINT
+);
+"""
+
+# CDM 5.4 `measurement`. Quantitative results: labs and vitals.
+MEASUREMENT = """
+CREATE TABLE IF NOT EXISTS measurement (
+    measurement_id                BIGINT  NOT NULL,
+    person_id                     BIGINT  NOT NULL,
+    measurement_concept_id        INTEGER NOT NULL,
+    measurement_date              DATE    NOT NULL,
+    measurement_datetime          TIMESTAMP,
+    measurement_time              VARCHAR,
+    measurement_type_concept_id   INTEGER NOT NULL,
+    operator_concept_id           INTEGER,
+    value_as_number               DOUBLE,
+    value_as_concept_id           INTEGER,
+    unit_concept_id               INTEGER,
+    range_low                     DOUBLE,
+    range_high                    DOUBLE,
+    provider_id                   BIGINT,
+    visit_occurrence_id           BIGINT,
+    visit_detail_id               BIGINT,
+    measurement_source_value      VARCHAR,
+    measurement_source_concept_id INTEGER,
+    unit_source_value             VARCHAR,
+    unit_source_concept_id        INTEGER,
+    value_source_value            VARCHAR,
+    measurement_event_id          BIGINT,
+    meas_event_field_concept_id   INTEGER
+);
+"""
+
+# CDM 5.4 `drug_exposure`.
+DRUG_EXPOSURE = """
+CREATE TABLE IF NOT EXISTS drug_exposure (
+    drug_exposure_id              BIGINT  NOT NULL,
+    person_id                     BIGINT  NOT NULL,
+    drug_concept_id               INTEGER NOT NULL,
+    drug_exposure_start_date      DATE    NOT NULL,
+    drug_exposure_start_datetime  TIMESTAMP,
+    drug_exposure_end_date        DATE    NOT NULL,
+    drug_exposure_end_datetime    TIMESTAMP,
+    verbatim_end_date             DATE,
+    drug_type_concept_id          INTEGER NOT NULL,
+    stop_reason                   VARCHAR,
+    refills                       INTEGER,
+    quantity                      DOUBLE,
+    days_supply                   INTEGER,
+    sig                           VARCHAR,
+    route_concept_id              INTEGER,
+    lot_number                    VARCHAR,
+    provider_id                   BIGINT,
+    visit_occurrence_id           BIGINT,
+    visit_detail_id               BIGINT,
+    drug_source_value             VARCHAR,
+    drug_source_concept_id        INTEGER,
+    route_source_value            VARCHAR,
+    dose_unit_source_value        VARCHAR
+);
+"""
+
+# CDM 5.4 `observation_period`. THE denominator table: the span during which a
+# person was observable in the data. Without it there is no defensible "at
+# risk" population, so no rate computed from this CDM means anything.
+OBSERVATION_PERIOD = """
+CREATE TABLE IF NOT EXISTS observation_period (
+    observation_period_id         BIGINT  NOT NULL,
+    person_id                     BIGINT  NOT NULL,
+    observation_period_start_date DATE    NOT NULL,
+    observation_period_end_date   DATE    NOT NULL,
+    period_type_concept_id        INTEGER NOT NULL
+);
+"""
+
+ALL = [
+    PERSON,
+    OBSERVATION_PERIOD,
+    VISIT_OCCURRENCE,
+    CONDITION_OCCURRENCE,
+    OBSERVATION,
+    MEASUREMENT,
+    DRUG_EXPOSURE,
+    ETL_PROVENANCE,
+]
