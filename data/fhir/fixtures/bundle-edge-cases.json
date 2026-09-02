@@ -1,0 +1,40 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "_comment": "gender 'other' is a valid FHIR code with no OMOP concept",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-003",
+        "gender": "other",
+        "birthDate": "1990-07-21"
+      }
+    },
+    {
+      "_comment": "FHIR date with year precision only -- legal, and common in AU aged-care extracts",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-004",
+        "gender": "male",
+        "birthDate": "1948"
+      }
+    },
+    {
+      "_comment": "no birthDate at all -- cannot satisfy NOT NULL year_of_birth, must be rejected",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-005",
+        "gender": "female"
+      }
+    },
+    {
+      "_comment": "no gender element -- absent, not 'unknown'",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-006",
+        "birthDate": "2001-01-30"
+      }
+    }
+  ]
+}

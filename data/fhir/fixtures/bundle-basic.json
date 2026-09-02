@@ -1,0 +1,38 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-001",
+        "gender": "female",
+        "birthDate": "1985-03-14",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race",
+            "extension": [
+              { "url": "text", "valueString": "White" }
+            ]
+          },
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity",
+            "extension": [
+              { "url": "text", "valueString": "Not Hispanic or Latino" }
+            ]
+          }
+        ],
+        "name": [{ "family": "Nguyen", "given": ["Mai"] }]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-002",
+        "gender": "male",
+        "birthDate": "1972-11-02",
+        "name": [{ "family": "Okafor", "given": ["Daniel"] }]
+      }
+    }
+  ]
+}

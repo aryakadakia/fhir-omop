@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated OMOP database and bulk FHIR input.
+# Fixtures under data/fhir/fixtures/ are committed deliberately.
+data/omop/*.duckdb
+data/fhir/*.json
+data/fhir/bulk/

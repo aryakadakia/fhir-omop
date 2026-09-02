@@ -1,0 +1,13 @@
+[project]
+name = "fhir-omop"
+version = "0.1.0"
+description = "FHIR R4 to OMOP CDM 5.4 ETL with vocabulary mapping and data-quality checks"
+requires-python = ">=3.13"
+dependencies = ["duckdb>=1.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
