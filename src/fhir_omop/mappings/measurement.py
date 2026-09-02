@@ -133,9 +133,23 @@ def map_observation(con, obs: dict, row_id: int, person_id: int,
             issues.append(resolution.note)
         if resolution.mapped:
             domain = concept_domain(con, concept_id)
-            target_table = "measurement" if domain == "Measurement" else "observation"
-            if domain not in ("Measurement", "Observation"):
-                issues.append(f"LOINC concept in domain {domain!r}; sent to observation")
+            if domain == "Measurement":
+                target_table = "measurement"
+            elif domain == "Observation":
+                target_table = "observation"
+            else:
+                # LOINC also carries Note- and Procedure-domain concepts, which
+                # belong in `note` and `procedure_occurrence` -- tables this ETL
+                # does not populate yet. Writing them to `observation` anyway
+                # would violate the domain rule, so the concept is refused while
+                # the fact and its source concept are kept. Same posture as an
+                # unmappable drug.
+                issues.append(
+                    f"concept {concept_id} is domain {domain!r}; no target table "
+                    "in this ETL, concept set to 0"
+                )
+                concept_id = NO_MATCHING_CONCEPT
+                target_table = "observation"
 
     # A quantitative result carries valueQuantity; a qualitative one carries
     # valueCodeableConcept or valueString. Both are legal Observations.

@@ -88,7 +88,7 @@ def _split_birth_date(value: str | None) -> tuple[int | None, int | None, int | 
     return year, month, day
 
 
-def map_patient(patient: dict, person_id: int) -> MappedPerson | None:
+def map_patient(patient: dict, person_id: int, con=None) -> MappedPerson | None:
     """Map one FHIR Patient resource to an OMOP person row.
 
     Returns None when the resource cannot produce a valid CDM row -- the caller
@@ -101,12 +101,19 @@ def map_patient(patient: dict, person_id: int) -> MappedPerson | None:
         return None
 
     fhir_gender = patient.get("gender")
-    gender_concept_id = map_gender(fhir_gender)
+    gender_concept_id = map_gender(fhir_gender, con)
     if gender_concept_id == NO_MATCHING_CONCEPT:
-        issues.append(
-            "gender element absent" if fhir_gender is None
-            else f"gender {fhir_gender!r} has no standard OMOP concept"
-        )
+        if fhir_gender is None:
+            issues.append("gender element absent")
+        elif fhir_gender.lower() in ("male", "female"):
+            # A recognised code that still failed to resolve means the Gender
+            # vocabulary is missing from the loaded vocabulary entirely.
+            issues.append(
+                f"gender {fhir_gender!r} recognised but its concept is absent "
+                "from the vocabulary -- is the Gender vocabulary loaded?"
+            )
+        else:
+            issues.append(f"gender {fhir_gender!r} has no standard OMOP concept")
 
     year, month, day = _split_birth_date(patient.get("birthDate"))
     if year is None:

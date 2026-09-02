@@ -155,7 +155,7 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
         # ---- pass 1: person ------------------------------------------------
         for patient in iter_resources(doc, "Patient"):
             report.seen["Patient"] += 1
-            mapped = map_patient(patient, ids["person"] + 1)
+            mapped = map_patient(patient, ids["person"] + 1, con)
             if mapped is None:
                 report.rejected.append((patient.get("id", "?"), "Patient: no id or birth year"))
                 continue

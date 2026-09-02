@@ -62,11 +62,26 @@ class Vocabulary:
         return row[0] if row else NO_MATCHING_CONCEPT
 
 
-def map_gender(fhir_gender: str | None) -> int:
-    """Map a FHIR Patient.gender code to an OMOP gender concept_id."""
+def map_gender(fhir_gender: str | None, con=None) -> int:
+    """Map a FHIR Patient.gender code to an OMOP gender concept_id.
+
+    The two gender concept ids are stable across vocabulary releases, but they
+    live in the `Gender` vocabulary, which is a SEPARATE selectable item in an
+    Athena bundle and is easy to omit. Writing 8507 into a database whose
+    vocabulary lacks it produces a dangling reference in every person row.
+
+    When a connection is supplied the concept is verified before use, so a
+    missing Gender vocabulary degrades to concept_id 0 -- visible in the
+    unmapped rate -- rather than to broken referential integrity.
+    """
     if fhir_gender is None:
         return NO_MATCHING_CONCEPT
-    return FHIR_GENDER_TO_OMOP.get(fhir_gender.lower(), NO_MATCHING_CONCEPT)
+    concept_id = FHIR_GENDER_TO_OMOP.get(fhir_gender.lower(), NO_MATCHING_CONCEPT)
+    if concept_id == NO_MATCHING_CONCEPT or con is None:
+        return concept_id
+    if not Vocabulary(con).exists(concept_id):
+        return NO_MATCHING_CONCEPT
+    return concept_id
 
 
 # FHIR identifies code systems by URI; OMOP identifies them by vocabulary_id.

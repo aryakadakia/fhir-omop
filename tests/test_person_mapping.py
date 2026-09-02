@@ -113,3 +113,41 @@ class TestPatientMapping:
         )
         ddl_columns = ddl.PERSON.count(",\n") + 1
         assert len(mapped.as_row()) == ddl_columns
+
+
+class TestGenderVocabularyPresence:
+    """The Gender vocabulary is a separate selectable item in an Athena bundle
+    and is easy to omit. These pin the degradation behaviour when it is."""
+
+    def _con(self, with_gender: bool):
+        import duckdb
+        c = duckdb.connect(":memory:")
+        c.execute("CREATE TABLE concept (concept_id INTEGER, concept_name VARCHAR)")
+        if with_gender:
+            c.executemany("INSERT INTO concept VALUES (?,?)",
+                          [(8507, "MALE"), (8532, "FEMALE")])
+        return c
+
+    def test_resolves_when_gender_vocabulary_present(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1980"}, 1, self._con(True))
+        assert m.gender_concept_id == GENDER_MALE
+
+    def test_degrades_to_zero_when_gender_vocabulary_absent(self):
+        # Writing 8507 into a database whose vocabulary lacks it produces a
+        # dangling reference in every person row. 0 is visible in the unmapped
+        # rate; a dangling id is only visible if someone runs the check.
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1980"}, 1, self._con(False))
+        assert m.gender_concept_id == NO_MATCHING_CONCEPT
+        assert any("Gender vocabulary loaded" in i for i in m.issues)
+
+    def test_source_value_survives_the_degradation(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "female",
+                         "birthDate": "1980"}, 1, self._con(False))
+        assert m.gender_source_value == "female"
+
+    def test_no_connection_keeps_previous_behaviour(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1980"}, 1)
+        assert m.gender_concept_id == GENDER_MALE
