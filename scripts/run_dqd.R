@@ -98,6 +98,11 @@ if (failed > 0) {
   print(head(sort(table(fails$checkName), decreasing = TRUE), 15))
 }
 
+# The path MUST be absolute. viewDqDashboard stashes it in an environment
+# variable and then calls shiny::runApp, which changes the working directory to
+# the package's own app folder before the app reads it. A relative path then
+# resolves against the package directory, the JSON parse fails, and the
+# dashboard renders an empty shell with no error.
+json_abs <- normalizePath(file.path(output_folder, "dqd-results.json"))
 cat("\nview with:\n")
-cat('  DataQualityDashboard::viewDqDashboard("',
-    file.path(output_folder, "dqd-results.json"), '")\n', sep = "")
+cat('  DataQualityDashboard::viewDqDashboard("', json_abs, '")\n', sep = "")

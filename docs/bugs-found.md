@@ -249,7 +249,22 @@ is per-session. One check in 2,533, on a metadata field, so not worth working
 around locally — but it is a small, well-scoped upstream contribution if
 anyone wants one.
 
-### 15. A path bug in the DQD runner itself
+### 15. The dashboard renders empty when given a relative path
+
+`viewDqDashboard` stashes the JSON path in an environment variable and then
+calls `shiny::runApp`, which changes the working directory to the package's own
+app folder. The app reads the path afterwards, so a relative path resolves
+against the package directory rather than yours.
+
+The JSON parse then fails and the dashboard renders its navigation shell with
+every panel empty — no error, no warning, nothing in the console.
+
+Reproduced from a different working directory: relative fails with a JSON
+lexical error, absolute returns all 2,533 rows.
+
+*Fix:* the runner now prints an absolute path via `normalizePath`.
+
+### 16. A path bug in the DQD runner itself
 
 `csvFile` is resolved relative to `outputFolder`, so passing a full path
 produced `results/dqd/results/dqd/...` and the CSV write failed — with a
