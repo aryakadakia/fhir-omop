@@ -18,3 +18,8 @@ data/fhir/bulk/
 
 # DQD output — regenerate with scripts/run_dqd.R
 results/
+
+# R session leftovers
+.Rhistory
+.RData
+.Rproj.user/
