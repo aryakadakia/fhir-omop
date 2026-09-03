@@ -11,23 +11,31 @@ decisions are documented at the point they are made.
 
 ## Status
 
-Implemented: `Patient` → `person`, `Condition` → `condition_occurrence` /
-`observation` (domain-routed), with two-step standard-concept resolution,
-provenance tracking, and a 13-check data-quality suite.
+Implemented: `Patient` → `person`, `Encounter` → `visit_occurrence`,
+`Condition` and `Observation` → domain-routed across `condition_occurrence` /
+`measurement` / `observation`, `MedicationRequest` and `Immunization` →
+`drug_exposure`, and derived `observation_period`. Two-step standard-concept
+resolution, provenance on every row, and a 26-check data-quality suite.
 
-Run against the Synthea FHIR R4 sample (1,180 patients):
+Run against the Synthea FHIR R4 sample (1,180 patients), with the full
+OHDSI Athena vocabulary (4.25M concepts):
 
 ```
-person                 1180
-condition_occurrence   7904
-observation             862   <- domain-routed out of condition_occurrence
-_etl_provenance        9946
-13/13 data-quality checks pass
+person                  1,180
+observation_period      1,180
+visit_occurrence       46,868
+condition_occurrence    8,583
+measurement           246,339
+observation            13,773
+drug_exposure          29,115
+26/26 data-quality checks pass
 ```
 
-Not yet implemented: `Observation` → `measurement`, `Encounter` →
-`visit_occurrence`, `MedicationRequest` → `drug_exposure`,
-`observation_period` derivation.
+Unmapped rates: conditions 1.3%, measurements 0.0%, observations 1.1%,
+drugs 0.1%, visits 0.0%, gender 0.0%.
+
+Not yet implemented: era tables (`drug_era`, `condition_era`), `Procedure` →
+`procedure_occurrence`, `DocumentReference` → `note`.
 
 ## The course
 
@@ -136,12 +144,23 @@ The `unmapped rates` block in the ETL output exists for exactly this reason: a
 pipeline can pass every conformance check while mapping almost nothing, and
 only that figure reveals it.
 
-**Current unmapped rate for conditions is 35.6%**, because the development
-vocabulary is a Synthea-derived subset carrying only 834 SNOMED concepts. This
-is a limitation of the vocabulary, not of the mapping logic — loading the full
-[Athena](https://athena.ohdsi.org/) vocabulary is expected to resolve most of
-it. It is reported rather than hidden, because an unmapped rate that is quietly
-excluded from the report is how a broken ETL passes review.
+The development vocabulary was a 32k-concept Synthea subset, against which
+conditions ran at 35.6% unmapped, observations 73.9% and drugs 84.3%. Loading
+the full [Athena](https://athena.ohdsi.org/) release took those to 1.3%, 1.1%
+and 0.1%.
+
+More usefully, the real vocabulary **found two bugs the subset could not**,
+neither of which raised an error:
+
+- LOINC carries Note- and Procedure-domain concepts. The Observation mapping
+  sent anything non-Measurement to `observation`, violating the domain rule on
+  102 rows.
+- `map_gender` returned hardcoded concept ids without checking they exist.
+  `Gender` is a separately selectable Athena vocabulary; omitting it put a
+  dangling reference in all 1,180 person rows.
+
+Both now resolve to `concept_id 0` with source values preserved, so the gap
+appears in the unmapped rate instead of as broken referential integrity.
 
 ## Vocabulary
 
