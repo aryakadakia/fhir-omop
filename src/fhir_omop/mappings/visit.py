@@ -42,6 +42,11 @@ class MappedVisit:
     visit_type_concept_id: int
     visit_source_value: str | None
     source_id: str
+    # Assigned by the ETL once the provider and care_site indexes exist; a
+    # visit cannot resolve them itself because both are corpus-wide reference
+    # entities rather than anything inside the Encounter.
+    provider_id: int | None = None
+    care_site_id: int | None = None
     issues: list[str] = field(default_factory=list)
 
     def as_row(self) -> tuple:
@@ -54,8 +59,8 @@ class MappedVisit:
             self.visit_end_date,
             None,  # visit_end_datetime
             self.visit_type_concept_id,
-            None,  # provider_id
-            None,  # care_site_id
+            self.provider_id,
+            self.care_site_id,
             self.visit_source_value,
             None,  # visit_source_concept_id
             None,  # admitted_from_concept_id

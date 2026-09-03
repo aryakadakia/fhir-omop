@@ -30,7 +30,16 @@ from fhir_omop.mappings.condition import map_condition, subject_id
 from fhir_omop.mappings.drug import map_medication_request
 from fhir_omop.mappings.immunization import map_immunization, patient_id
 from fhir_omop.mappings.measurement import map_observation, reference_id
+from fhir_omop.mappings.misc_clinical import (
+    administration_encounter, administration_subject, allergy_patient,
+    device_patient, map_allergy, map_device, map_medication_administration,
+)
+from fhir_omop.mappings.organisation import (
+    address_key, map_location, map_organization, map_practitioner,
+)
 from fhir_omop.mappings.person import map_patient
+from fhir_omop.mappings.procedure import map_procedure
+from fhir_omop.mappings.procedure import subject_id as procedure_subject_id
 from fhir_omop.mappings.visit import map_encounter
 
 BATCH_SIZE = 5000
@@ -42,6 +51,11 @@ INSERT_SQL = {
     "observation": "INSERT INTO observation VALUES (" + ",".join("?" * 21) + ")",
     "measurement": "INSERT INTO measurement VALUES (" + ",".join("?" * 23) + ")",
     "drug_exposure": "INSERT INTO drug_exposure VALUES (" + ",".join("?" * 23) + ")",
+    "procedure_occurrence": "INSERT INTO procedure_occurrence VALUES (" + ",".join("?" * 16) + ")",
+    "device_exposure": "INSERT INTO device_exposure VALUES (" + ",".join("?" * 19) + ")",
+    "provider": "INSERT INTO provider VALUES (" + ",".join("?" * 13) + ")",
+    "care_site": "INSERT INTO care_site VALUES (" + ",".join("?" * 6) + ")",
+    "location": "INSERT INTO location VALUES (" + ",".join("?" * 12) + ")",
     "_etl_provenance": (
         "INSERT INTO _etl_provenance "
         "(cdm_table, cdm_pk, source_file, source_resource, source_id) VALUES (?,?,?,?,?)"
@@ -176,6 +190,66 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
         ids[table] += 1
         return ids[table]
 
+    # ---- pass 0: reference entities ----------------------------------------
+    # Practitioners and organizations are shared reference data, not patient
+    # data: the same practitioner appears in a bundle for every patient they
+    # treated. They are deduplicated by source id across the whole corpus --
+    # loading them per bundle would create one provider row per patient
+    # treated and make any per-clinician analysis meaningless.
+    provider_index: dict[str, int] = {}
+    care_site_index: dict[str, int] = {}
+    location_index: dict[tuple, int] = {}
+
+    def location_for(address: dict | None) -> int | None:
+        """Locations have no source id in FHIR, so they are keyed by content."""
+        key = address_key(address)
+        if key is None:
+            return None
+        if key not in location_index:
+            lid = next_id("location")
+            location_index[key] = lid
+            writer.add("location", map_location(address, lid).as_row())
+        return location_index[key]
+
+    for path in files:
+        doc = json.loads(path.read_text())
+
+        for org in iter_resources(doc, "Organization"):
+            report.seen["Organization"] += 1
+            source_id = org.get("id")
+            if not source_id or source_id in care_site_index:
+                continue
+            addresses = org.get("address") or []
+            lid = location_for(addresses[0] if addresses else None)
+            cid = next_id("care_site")
+            mapped = map_organization(org, cid, lid)
+            if mapped is None:
+                ids["care_site"] -= 1
+                continue
+            care_site_index[source_id] = cid
+            writer.add("care_site", mapped.as_row())
+            writer.add("_etl_provenance", ("care_site", cid, path.name, "Organization", source_id))
+
+        for prac in iter_resources(doc, "Practitioner"):
+            report.seen["Practitioner"] += 1
+            source_id = prac.get("id")
+            if not source_id or source_id in provider_index:
+                continue
+            pid_new = next_id("provider")
+            mapped = map_practitioner(con, prac, pid_new, None)
+            if mapped is None:
+                ids["provider"] -= 1
+                continue
+            provider_index[source_id] = pid_new
+            writer.add("provider", mapped.as_row())
+            writer.add("_etl_provenance", ("provider", pid_new, path.name, "Practitioner", source_id))
+            report.issues.update(mapped.issues)
+
+    writer.flush_all()
+    report.loaded["provider"] = ids["provider"]
+    report.loaded["care_site"] = ids["care_site"]
+    report.loaded["location"] = ids["location"]
+
     for path in files:
         doc = json.loads(path.read_text())
 
@@ -207,6 +281,12 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
                 continue
             vid = next_id("visit_occurrence")
             mapped.visit_occurrence_id = vid
+            mapped.care_site_id = care_site_index.get(
+                reference_id(encounter.get("serviceProvider")))
+            participants = encounter.get("participant") or []
+            if participants:
+                mapped.provider_id = provider_index.get(
+                    reference_id(participants[0].get("individual")))
             visit_index[mapped.source_id] = vid
             writer.add("visit_occurrence", mapped.as_row())
             writer.add("_etl_provenance",
@@ -272,7 +352,31 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
                        ("drug_exposure", did, path.name, "MedicationRequest", mapped.source_id))
             report.issues.update(mapped.issues)
 
-        # ---- pass 3d: immunizations -> drug_exposure ----------------------
+        # ---- pass 3d: procedures -> domain-routed --------------------------
+        for proc in iter_resources(doc, "Procedure"):
+            report.seen["Procedure"] += 1
+            pid = person_index.get(procedure_subject_id(proc))
+            if pid is None:
+                report.rejected.append((proc.get("id", "?"), "Procedure: unresolved subject"))
+                continue
+            vid = visit_index.get(reference_id(proc.get("encounter")))
+            mapped = map_procedure(con, proc, 0, pid, vid)
+            if mapped is None:
+                report.rejected.append((proc.get("id", "?"), "Procedure: not performed, or no date"))
+                continue
+            table = mapped.target_table
+            rid = next_id(table)
+            mapped.row_id = rid
+            row = {
+                "procedure_occurrence": mapped.as_procedure_row,
+                "observation": mapped.as_observation_row,
+                "measurement": mapped.as_measurement_row,
+            }[table]()
+            writer.add(table, row)
+            writer.add("_etl_provenance", (table, rid, path.name, "Procedure", mapped.source_id))
+            report.issues.update(mapped.issues)
+
+        # ---- pass 3e: immunizations -> drug_exposure ----------------------
         for imm in iter_resources(doc, "Immunization"):
             report.seen["Immunization"] += 1
             pid = person_index.get(patient_id(imm))
@@ -291,9 +395,62 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
                        ("drug_exposure", did, path.name, "Immunization", mapped.source_id))
             report.issues.update(mapped.issues)
 
+        # ---- pass 3f: medication administrations -> drug_exposure ---------
+        for admin in iter_resources(doc, "MedicationAdministration"):
+            report.seen["MedicationAdministration"] += 1
+            pid = person_index.get(administration_subject(admin))
+            if pid is None:
+                report.rejected.append((admin.get("id", "?"), "MedicationAdministration: unresolved subject"))
+                continue
+            vid = visit_index.get(administration_encounter(admin))
+            mapped = map_medication_administration(con, admin, 0, pid, vid)
+            if mapped is None:
+                report.rejected.append((admin.get("id", "?"), "MedicationAdministration: not given, or no date"))
+                continue
+            did = next_id("drug_exposure")
+            mapped.drug_exposure_id = did
+            writer.add("drug_exposure", mapped.as_row())
+            writer.add("_etl_provenance", ("drug_exposure", did, path.name, "MedicationAdministration", mapped.source_id))
+            report.issues.update(mapped.issues)
+
+        # ---- pass 3g: allergies -> observation -----------------------------
+        for allergy in iter_resources(doc, "AllergyIntolerance"):
+            report.seen["AllergyIntolerance"] += 1
+            pid = person_index.get(allergy_patient(allergy))
+            if pid is None:
+                report.rejected.append((allergy.get("id", "?"), "AllergyIntolerance: unresolved patient"))
+                continue
+            mapped = map_allergy(con, allergy, 0, pid)
+            if mapped is None:
+                report.rejected.append((allergy.get("id", "?"), "AllergyIntolerance: refuted, or no date"))
+                continue
+            oid = next_id("observation")
+            mapped.observation_id = oid
+            writer.add("observation", mapped.as_row())
+            writer.add("_etl_provenance", ("observation", oid, path.name, "AllergyIntolerance", mapped.source_id))
+            report.issues.update(mapped.issues)
+
+        # ---- pass 3h: devices -> device_exposure ---------------------------
+        for device in iter_resources(doc, "Device"):
+            report.seen["Device"] += 1
+            pid = person_index.get(device_patient(device))
+            if pid is None:
+                report.rejected.append((device.get("id", "?"), "Device: unresolved patient"))
+                continue
+            mapped = map_device(con, device, 0, pid)
+            if mapped is None:
+                report.rejected.append((device.get("id", "?"), "Device: excluded status or no date"))
+                continue
+            deid = next_id("device_exposure")
+            mapped.device_exposure_id = deid
+            writer.add("device_exposure", mapped.as_row())
+            writer.add("_etl_provenance", ("device_exposure", deid, path.name, "Device", mapped.source_id))
+            report.issues.update(mapped.issues)
+
     writer.flush_all()
     for table in ("person", "visit_occurrence", "condition_occurrence",
-                  "observation", "measurement", "drug_exposure"):
+                  "observation", "measurement", "drug_exposure",
+                  "procedure_occurrence", "device_exposure"):
         report.loaded[table] = ids[table]
 
     # cdm_source carries the version and vocabulary metadata that downstream

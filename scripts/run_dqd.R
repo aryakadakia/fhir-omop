@@ -54,6 +54,23 @@ resultsDatabaseSchema <- "main"
 # later runs if the noise gets in the way.
 tables_to_exclude <- c()
 
+# Threshold overrides, if generated. See scripts/make_thresholds.R for what is
+# changed and why -- the only deviation from DQD's defaults is the pre-1950
+# date floor, which does not apply to a dataset of complete lifetimes.
+#
+# Overriding a threshold with a recorded reason and silently ignoring a red
+# check look identical in the dashboard. Only one of them answers "why is this
+# failing?" six months later.
+field_thresholds <- "config/field_level_thresholds.csv"
+if (file.exists(field_thresholds)) {
+  field_thresholds <- normalizePath(field_thresholds)
+  cat("thresholds:", field_thresholds, "(overridden -- see scripts/make_thresholds.R)\n\n")
+} else {
+  field_thresholds <- system.file("csv", "OMOP_CDMv5.4_Field_Level.csv",
+                                  package = "DataQualityDashboard")
+  cat("thresholds: DQD defaults\n\n")
+}
+
 start <- Sys.time()
 
 results <- DataQualityDashboard::executeDqChecks(
@@ -65,6 +82,7 @@ results <- DataQualityDashboard::executeDqChecks(
   outputFolder            = output_folder,
   outputFile              = "dqd-results.json",
   tablesToExclude         = tables_to_exclude,
+  fieldCheckThresholdLoc  = field_thresholds,
   # Results are kept as JSON only. Writing them back into the CDM would put
   # a dqdashboard_results table inside the database we are auditing.
   writeToTable            = FALSE,

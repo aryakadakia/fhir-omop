@@ -277,6 +277,7 @@ CHECKS: list[Check] = [
           UNION ALL SELECT observation_type_concept_id FROM observation
           UNION ALL SELECT drug_type_concept_id FROM drug_exposure
           UNION ALL SELECT visit_type_concept_id FROM visit_occurrence
+          UNION ALL SELECT procedure_type_concept_id FROM procedure_occurrence
           UNION ALL SELECT period_type_concept_id FROM observation_period
         ) t JOIN concept c ON c.concept_id = t.cid
         WHERE c.standard_concept IS DISTINCT FROM 'S'
@@ -290,6 +291,28 @@ CHECKS: list[Check] = [
         "  year(birth_datetime) <> year_of_birth"
         "  OR month(birth_datetime) IS DISTINCT FROM month_of_birth"
         "  OR day(birth_datetime) IS DISTINCT FROM day_of_birth)",
+    ),
+    Check(
+        "procedure_person_fk",
+        "conformance",
+        "every procedure_occurrence.person_id exists in person",
+        "SELECT count(*) FROM procedure_occurrence p LEFT JOIN person pe "
+        "ON pe.person_id = p.person_id WHERE pe.person_id IS NULL",
+    ),
+    Check(
+        "procedure_concept_in_procedure_domain",
+        "conformance",
+        "procedure_concept_id must be a Procedure-domain concept (or 0)",
+        "SELECT count(*) FROM procedure_occurrence p JOIN concept c "
+        "ON c.concept_id = p.procedure_concept_id "
+        "WHERE p.procedure_concept_id <> 0 AND c.domain_id <> 'Procedure'",
+    ),
+    Check(
+        "procedure_end_not_before_start",
+        "plausibility",
+        "procedure_end_date must not precede procedure_date",
+        "SELECT count(*) FROM procedure_occurrence "
+        "WHERE procedure_end_date IS NOT NULL AND procedure_end_date < procedure_date",
     ),
     Check(
         "every_person_has_provenance",
@@ -324,6 +347,7 @@ def unmapped_rates(con) -> list[tuple[str, int, int, float]]:
         ("observation", "observation_concept_id"),
         ("drug_exposure", "drug_concept_id"),
         ("visit_occurrence", "visit_concept_id"),
+        ("procedure_occurrence", "procedure_concept_id"),
     ):
         total = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
         unmapped = con.execute(
