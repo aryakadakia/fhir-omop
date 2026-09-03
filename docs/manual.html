@@ -1,0 +1,877 @@
+<title>The FHIR–OMOP Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --paper:        #F7F8F6;
+  --surface:      #FFFFFF;
+  --surface-sunk: #EFF1EE;
+  --ink:          #111715;
+  --ink-soft:     #45514D;
+  --ink-faint:    #6E7A75;
+  --rule:         #D9DED9;
+  --rule-soft:    #E7EAE6;
+
+  --petrol:       #14505C;
+  --petrol-wash:  #E4EDEE;
+  --clay:         #A6543A;
+  --clay-wash:    #F6E9E3;
+  --sage:         #5E7361;
+  --sage-wash:    #E7EDE7;
+
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+  --serif: "Newsreader", Georgia, "Times New Roman", serif;
+
+  --measure: 68ch;
+  --s1: 0.5rem; --s2: 0.85rem; --s3: 1.35rem; --s4: 2.1rem; --s5: 3.4rem; --s6: 5rem;
+}
+
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --paper: #0E1413; --surface: #151D1B; --surface-sunk: #101817;
+    --ink: #E4E9E5; --ink-soft: #A8B3AE; --ink-faint: #7C8782;
+    --rule: #263230; --rule-soft: #1D2725;
+    --petrol: #6FBACB; --petrol-wash: #14282D;
+    --clay: #D9906F; --clay-wash: #2E1E17;
+    --sage: #9DB49F; --sage-wash: #1B241C;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0E1413; --surface: #151D1B; --surface-sunk: #101817;
+  --ink: #E4E9E5; --ink-soft: #A8B3AE; --ink-faint: #7C8782;
+  --rule: #263230; --rule-soft: #1D2725;
+  --petrol: #6FBACB; --petrol-wash: #14282D;
+  --clay: #D9906F; --clay-wash: #2E1E17;
+  --sage: #9DB49F; --sage-wash: #1B241C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--sans);
+  font-size: 17px; line-height: 1.68; margin: 0; -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--s3) var(--s6); }
+
+.masthead { border-bottom: 2px solid var(--ink); padding: var(--s5) 0 var(--s3); margin-bottom: var(--s4); }
+.eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--petrol); margin: 0 0 var(--s2); }
+.masthead h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(2.6rem, 7vw, 4.4rem); line-height: 1.02; letter-spacing: -0.02em; margin: 0 0 var(--s3); text-wrap: balance; }
+.standfirst { font-family: var(--serif); font-size: clamp(1.1rem, 2.2vw, 1.32rem); line-height: 1.5; color: var(--ink-soft); max-width: var(--measure); margin: 0; }
+.masthead-meta { display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s4); font-family: var(--mono); font-size: 0.75rem; color: var(--ink-faint); }
+.masthead-meta b { color: var(--ink-soft); font-weight: 500; }
+
+.toc { background: var(--surface-sunk); border: 1px solid var(--rule); padding: var(--s3); margin-bottom: var(--s6); }
+.toc h2 { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); margin: 0 0 var(--s2); font-weight: 500; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.toc a { display: grid; grid-template-columns: 2.4rem 1fr; gap: var(--s2); padding: 0.45rem var(--s1); color: var(--ink); text-decoration: none; border-radius: 2px; }
+.toc a:hover { background: var(--petrol-wash); color: var(--petrol); }
+.toc .num { font-family: var(--mono); font-size: 0.78rem; color: var(--petrol); }
+
+.module { margin-bottom: var(--s6); scroll-margin-top: var(--s3); }
+.module-head { display: grid; grid-template-columns: 3.4rem 1fr; gap: var(--s3); align-items: start; border-top: 1px solid var(--ink); padding-top: var(--s2); margin-bottom: var(--s4); }
+.module-num { font-family: var(--mono); font-size: 0.78rem; color: var(--petrol); padding-top: 0.5rem; font-variant-numeric: tabular-nums; }
+.module-head h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.65rem, 3.5vw, 2.4rem); line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--s1); text-wrap: balance; }
+.module-head .sub { color: var(--ink-faint); font-size: 0.95rem; margin: 0; max-width: var(--measure); }
+
+.body { max-width: var(--measure); }
+.body > * + * { margin-top: var(--s3); }
+.body p { margin: 0; }
+.body h3 { font-family: var(--sans); font-weight: 600; font-size: 1.02rem; margin: var(--s4) 0 0; color: var(--ink); }
+.body h3::before { content: ""; display: block; width: 2rem; height: 2px; background: var(--petrol); margin-bottom: var(--s2); }
+.body h4 { font-family: var(--sans); font-weight: 600; font-size: 0.95rem; margin: var(--s3) 0 0; }
+.body ul, .body ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+.body li { padding-left: 0.2rem; }
+
+a { color: var(--petrol); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, .toc a:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--surface-sunk); border: 1px solid var(--rule-soft); padding: 0.06em 0.34em; border-radius: 2px; white-space: nowrap; }
+
+.code { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--petrol); overflow-x: auto; max-width: 100%; }
+.code pre { margin: 0; padding: var(--s3); font-family: var(--mono); font-size: 0.79rem; line-height: 1.62; color: var(--ink-soft); }
+.code .cap { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); padding: 0.55rem var(--s3); border-bottom: 1px solid var(--rule-soft); background: var(--surface-sunk); position: sticky; left: 0; }
+.code b { color: var(--petrol); font-weight: 500; }
+.code i { color: var(--clay); font-style: normal; }
+.code s { color: var(--ink-faint); text-decoration: none; }
+.code u { color: var(--sage); text-decoration: none; }
+.wide { max-width: 100%; }
+
+.note { border: 1px solid var(--sage); background: var(--sage-wash); padding: var(--s3); max-width: var(--measure); }
+.note .tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sage); display: block; margin-bottom: var(--s2); }
+.note p { margin: 0; font-size: 0.95rem; }
+.note p + p { margin-top: var(--s2); }
+
+.warn { border: 1px solid var(--clay); background: var(--clay-wash); padding: var(--s3); max-width: var(--measure); }
+.warn .tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--clay); display: block; margin-bottom: var(--s2); }
+.warn p { margin: 0; font-size: 0.95rem; }
+.warn p + p { margin-top: var(--s2); }
+
+.aside { border-left: 3px solid var(--rule); padding-left: var(--s3); font-family: var(--serif); font-size: 1.05rem; color: var(--ink-soft); max-width: var(--measure); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; min-width: 480px; }
+th, td { text-align: left; padding: 0.6rem var(--s2); border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+th { font-family: var(--mono); font-size: 0.67rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-faint); font-weight: 500; background: var(--surface-sunk); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+td.mono { font-family: var(--mono); font-size: 0.79rem; }
+
+.pipeline { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.stage { background: var(--surface); padding: var(--s3); display: grid; grid-template-columns: 4.5rem 1fr; gap: var(--s3); }
+.stage .pass { font-family: var(--mono); font-size: 0.72rem; color: var(--petrol); letter-spacing: 0.06em; }
+.stage h4 { margin: 0 0 0.3rem; font-size: 0.97rem; font-weight: 600; }
+.stage p { margin: 0; font-size: 0.89rem; color: var(--ink-soft); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.stat { background: var(--surface); padding: var(--s3); }
+.stat .n { font-family: var(--mono); font-size: 1.4rem; font-variant-numeric: tabular-nums; color: var(--petrol); display: block; line-height: 1.1; }
+.stat .l { font-size: 0.74rem; color: var(--ink-faint); margin-top: 0.35rem; display: block; }
+
+.filelist { border: 1px solid var(--rule); background: var(--surface); }
+.filelist > div { display: grid; grid-template-columns: minmax(190px, 250px) 1fr; gap: var(--s3); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--rule-soft); }
+.filelist > div:last-child { border-bottom: none; }
+.filelist .f { font-family: var(--mono); font-size: 0.78rem; color: var(--petrol); }
+.filelist .d { font-size: 0.89rem; color: var(--ink-soft); }
+.filelist .grp { background: var(--surface-sunk); grid-template-columns: 1fr; font-family: var(--mono); font-size: 0.67rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
+
+@media (max-width: 640px) {
+  .module-head { grid-template-columns: 1fr; gap: var(--s1); }
+  .module-num { padding-top: 0; }
+  .stage, .filelist > div { grid-template-columns: 1fr; gap: var(--s1); }
+  body { font-size: 16px; }
+}
+
+.foot { border-top: 2px solid var(--ink); padding-top: var(--s3); margin-top: var(--s6); font-size: 0.85rem; color: var(--ink-faint); max-width: var(--measure); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Operator's manual</p>
+  <h1>The FHIR–OMOP Pipeline</h1>
+  <p class="standfirst">A system that converts clinical data from the format hospitals use for exchange into the format researchers use for analysis. This is what it contains, what each part does, how to run it, and how to read what comes out — written for someone who has never seen either standard.</p>
+  <div class="masthead-meta">
+    <span><b>Location</b> ~/Desktop/fhir_omop</span>
+    <span><b>Language</b> Python 3.13 + R 4.6</span>
+    <span><b>Store</b> DuckDB</span>
+    <span><b>Companion</b> docs/course.html</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#s1"><span class="num">01</span><span>What this is, in plain language</span></a></li>
+    <li><a href="#s2"><span class="num">02</span><span>The vocabulary — the part that does the work</span></a></li>
+    <li><a href="#s3"><span class="num">03</span><span>What's in the box</span></a></li>
+    <li><a href="#s4"><span class="num">04</span><span>How the ETL runs: nine passes</span></a></li>
+    <li><a href="#s5"><span class="num">05</span><span>What it produced, table by table</span></a></li>
+    <li><a href="#s6"><span class="num">06</span><span>The derived tables</span></a></li>
+    <li><a href="#s7"><span class="num">07</span><span>Running it: every command</span></a></li>
+    <li><a href="#s8"><span class="num">08</span><span>Reading the output</span></a></li>
+    <li><a href="#s9"><span class="num">09</span><span>Quality checking</span></a></li>
+    <li><a href="#s10"><span class="num">10</span><span>Cohorts: asking it questions</span></a></li>
+    <li><a href="#s11"><span class="num">11</span><span>Extending it</span></a></li>
+    <li><a href="#s12"><span class="num">12</span><span>Troubleshooting</span></a></li>
+    <li><a href="#s13"><span class="num">13</span><span>Known limits</span></a></li>
+  </ol>
+</nav>
+
+<!-- ============ 1 ============ -->
+<section class="module" id="s1">
+  <div class="module-head">
+    <div class="module-num">01</div>
+    <div><h2>What this is, in plain language</h2>
+    <p class="sub">Start here if the words FHIR and OMOP mean nothing to you.</p></div>
+  </div>
+
+  <div class="body">
+    <p>Hospitals store patient records in systems that can hand out one patient's data at a time, on request, to an app that needs it. The format they use for that is called <strong>FHIR</strong>. It is excellent at its job: <em>"give me everything about this one person, now."</em></p>
+
+    <p>Researchers need the opposite. They want to ask <em>"how many people like this, across every hospital in the country, and what happened to them?"</em> FHIR cannot answer that without downloading every patient one at a time and writing bespoke code to compare them. So the research community built a second format, <strong>OMOP CDM</strong>, designed only for that kind of question.</p>
+
+    <p>The two formats hold the same facts in completely different shapes. Somebody has to write the converter.</p>
+
+    <div class="aside">This pipeline is that converter. It reads 1,180 patients' worth of FHIR files and writes an OMOP database you can ask population questions of in ordinary SQL.</div>
+
+    <h3>What it actually did</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">1,180</span><span class="l">patients read</span></div>
+      <div class="stat"><span class="n">414K</span><span class="l">FHIR resources in</span></div>
+      <div class="stat"><span class="n">396K</span><span class="l">CDM rows out</span></div>
+      <div class="stat"><span class="n">36/36</span><span class="l">quality checks pass</span></div>
+    </div>
+
+    <h3>The data is synthetic</h3>
+    <p>Every patient here is generated by <a href="https://synthetichealth.github.io/synthea-sample-data/">Synthea</a>, a simulator that produces realistic but entirely fictional medical histories. No real person's data is involved anywhere in this project. That matters for two reasons: nothing here carries privacy obligations, and nothing here should be mistaken for a finding about real people.</p>
+
+    <h3>Why it was built</h3>
+    <p>As a learning exercise, and it works because the two formats disagree constantly. Every disagreement forces a decision you have to make consciously — FHIR says "this is a diagnosis", OMOP says "that concept belongs in the observations table". Reading a specification lets you nod past those. Writing the converter does not.</p>
+  </div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="module" id="s2">
+  <div class="module-head">
+    <div class="module-num">02</div>
+    <div><h2>The vocabulary — the part that does the work</h2>
+    <p class="sub">Understand this and the rest of the system makes sense.</p></div>
+  </div>
+
+  <div class="body">
+    <p>Consider one medical idea: <em>high blood pressure with no identifiable cause</em>. Different systems write it down differently:</p>
+
+    <div class="code">
+      <div class="cap">one idea, many codes</div>
+<pre>SNOMED CT   <b>59621000</b>    "Essential hypertension"
+ICD-10      <b>I10</b>         "Essential (primary) hypertension"
+ICD-9-CM    <b>401.9</b>       "Unspecified essential hypertension"
+a hospital  <b>HTN-1</b>       "HTN, essential"</pre>
+    </div>
+
+    <p>If you store whatever code arrived, you cannot count patients across hospitals. OMOP solves this by giving the <em>idea itself</em> its own number, independent of any coding system. Essential hypertension is <strong><code>320128</code></strong>. Every one of those source codes points at it.</p>
+
+    <p>That number is called a <strong>concept_id</strong>, and it is the single most important thing in OMOP. Every clinical fact in the database is stored as one.</p>
+
+    <h3>The vocabulary file</h3>
+    <p>The translation table is enormous and is maintained by the OHDSI community, not by you. This pipeline uses a copy downloaded from <a href="https://athena.ohdsi.org/">Athena</a>:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>What it holds</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">concept</td><td>The dictionary. Every medical idea, one row each.</td><td class="num">4,254,142</td></tr>
+          <tr><td class="mono">concept_relationship</td><td>Edges between concepts, including <code>Maps to</code></td><td class="num">35,221,992</td></tr>
+          <tr><td class="mono">concept_ancestor</td><td>The hierarchy, precomputed at every depth</td><td class="num">38,996,579</td></tr>
+          <tr><td class="mono">concept_synonym</td><td>Alternative names for searching</td><td class="num">2,449,429</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Downloading that is downloading years of other people's terminology work. It is the reason OMOP is worth the trouble.</p>
+
+    <h3>Two mechanisms people confuse</h3>
+
+    <div class="note">
+      <span class="tag">Maps to — equivalence</span>
+      <p>"This code means the same thing as that standard concept." Handles deprecated codes and cross-vocabulary translation. Runs at <strong>load time</strong>, normalising whatever arrives.</p>
+      <p>Example: SNOMED retired <code>Prediabetes</code> in 2002. It still arrives in data. <code>Maps to</code> redirects it to <code>Impaired glucose tolerance</code>, which is current.</p>
+    </div>
+
+    <div class="note">
+      <span class="tag">concept_ancestor — subsumption</span>
+      <p>"This is a <em>kind of</em> that." Pre-eclampsia is not the same as hypertensive disorder — it is a specific form of it. Runs at <strong>analysis time</strong>, letting you ask for a whole family of concepts at once.</p>
+      <p>Asking for everything beneath "Hypertensive disorder" returns 139 concepts, including forms you would not have thought to list.</p>
+    </div>
+
+    <h3>Standard and non-standard concepts</h3>
+    <p>Because concepts are imported from many source vocabularies, OMOP ends up holding several that mean roughly the same thing. It nominates exactly one as <strong>standard</strong>; everything else exists only to be translated <em>from</em>.</p>
+
+    <div class="warn">
+      <span class="tag">The failure this causes</span>
+      <p>Storing a non-standard concept raises no error. The row inserts, foreign keys resolve, checks pass. But every cohort query in the OHDSI world searches for standard concepts, so those patients are not <em>rejected</em> — they are <strong>invisible</strong>. You see a number that is too small and nothing tells you why.</p>
+      <p>This happened twice during construction. Both times it was caught by a check, not by reading the specification.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="module" id="s3">
+  <div class="module-head">
+    <div class="module-num">03</div>
+    <div><h2>What's in the box</h2>
+    <p class="sub">Every file, and what it is for.</p></div>
+  </div>
+
+  <div class="body">
+    <div class="stats">
+      <div class="stat"><span class="n">5,504</span><span class="l">lines of Python</span></div>
+      <div class="stat"><span class="n">347</span><span class="l">lines of R</span></div>
+      <div class="stat"><span class="n">206</span><span class="l">tests</span></div>
+      <div class="stat"><span class="n">22</span><span class="l">commits</span></div>
+    </div>
+  </div>
+
+  <div class="filelist" style="margin-top:var(--s3)">
+    <div class="grp"><span>Core engine — src/fhir_omop/</span></div>
+    <div><span class="f">etl.py</span><span class="d">The orchestrator. Reads bundles, runs nine passes in order, writes rows in batches. 481 lines, and the only file that knows about the pipeline as a whole.</span></div>
+    <div><span class="f">vocab.py</span><span class="d">All concept resolution. Translates FHIR code-system URIs to OMOP vocabulary names, looks up codes, follows <code>Maps to</code>, checks domains. Memoised, because a quarter-million resources resolve against about a thousand distinct codes.</span></div>
+    <div><span class="f">references.py</span><span class="d">One implementation of "what does this FHIR reference point at". Handles six legal forms. Exists because there were once two divergent copies and that was a live bug.</span></div>
+    <div><span class="f">ddl.py</span><span class="d">Table definitions for everything the pipeline populates, following the CDM 5.4 specification.</span></div>
+    <div><span class="f">cdm_remainder.py</span><span class="d">Definitions for the 21 CDM tables it does <em>not</em> populate, created empty. OHDSI tooling treats a missing table as an error but an empty one as a legitimate finding.</span></div>
+    <div><span class="f">dq.py</span><span class="d">36 data-quality checks in three categories. Each returns a count of violations, so zero always means pass.</span></div>
+
+    <div class="grp"><span>Mappings — one module per FHIR resource type</span></div>
+    <div><span class="f">mappings/person.py</span><span class="d">Patient → person. Demographics, birth-date precision, the race/ethnicity decision.</span></div>
+    <div><span class="f">mappings/visit.py</span><span class="d">Encounter → visit_occurrence. Visit types, missing end dates.</span></div>
+    <div><span class="f">mappings/condition.py</span><span class="d">Condition → condition_occurrence or observation, decided by domain.</span></div>
+    <div><span class="f">mappings/measurement.py</span><span class="d">Observation → measurement or observation. Produces the largest table.</span></div>
+    <div><span class="f">mappings/procedure.py</span><span class="d">Procedure → procedure_occurrence, measurement or observation.</span></div>
+    <div><span class="f">mappings/drug.py</span><span class="d">MedicationRequest → drug_exposure. Prescriptions.</span></div>
+    <div><span class="f">mappings/immunization.py</span><span class="d">Immunization → drug_exposure. Vaccines are drugs in OMOP.</span></div>
+    <div><span class="f">mappings/misc_clinical.py</span><span class="d">MedicationAdministration, AllergyIntolerance and Device. Grouped because they share a shape.</span></div>
+    <div><span class="f">mappings/organisation.py</span><span class="d">Practitioner → provider, Organization → care_site, addresses → location. The only non-patient-scoped resources.</span></div>
+    <div><span class="f">mappings/observation_period.py</span><span class="d">Derives the observable window per person. Has no FHIR counterpart.</span></div>
+    <div><span class="f">mappings/eras.py</span><span class="d">Derives drug_era and condition_era. Also has no FHIR counterpart.</span></div>
+
+    <div class="grp"><span>Scripts — the things you actually run</span></div>
+    <div><span class="f">scripts/run_etl.py</span><span class="d">Runs the conversion and prints a report.</span></div>
+    <div><span class="f">scripts/load_athena_vocab.py</span><span class="d">Loads an Athena vocabulary download. <code>--merge</code> tops up an existing one without rebuilding it.</span></div>
+    <div><span class="f">scripts/run_dqd.R</span><span class="d">Runs the OHDSI Data Quality Dashboard — 2,533 standardised checks.</span></div>
+    <div><span class="f">scripts/make_thresholds.R</span><span class="d">Generates a threshold override file from DQD's defaults, with the reason recorded.</span></div>
+    <div><span class="f">scripts/build_cohorts.R</span><span class="d">Defines cohorts in R, compiles them to SQL, generates them against the CDM.</span></div>
+
+    <div class="grp"><span>Documentation</span></div>
+    <div><span class="f">README.md</span><span class="d">Quick start and the headline mapping decisions.</span></div>
+    <div><span class="f">docs/course.html</span><span class="d">The concepts: what FHIR and OMOP are, how the vocabulary works, why any of it matters.</span></div>
+    <div><span class="f">docs/bugs-found.md</span><span class="d">Every defect found during construction, grouped by how it was found, plus what looked like a defect and was not.</span></div>
+  </div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section class="module" id="s4">
+  <div class="module-head">
+    <div class="module-num">04</div>
+    <div><h2>How the ETL runs: nine passes</h2>
+    <p class="sub">The order is forced by the data, not chosen for convenience.</p></div>
+  </div>
+
+  <div class="body">
+    <p><strong>ETL</strong> stands for Extract, Transform, Load — read from the source, reshape, write to the target. The reason this one runs in passes rather than straight through is that clinical records point at each other.</p>
+
+    <p>A diagnosis says "this belongs to patient <code>urn:uuid:5cbc121b…</code>". To write it, you need that patient's row to already exist and to know what number you gave them. So people must be loaded before diagnoses. The same applies to visits, and to the doctors and hospitals that everything else references.</p>
+
+    <div class="pipeline">
+      <div class="stage"><div class="pass">pass 0</div><div><h4>Doctors, hospitals, addresses</h4><p>Practitioner → <code>provider</code>, Organization → <code>care_site</code>, their addresses → <code>location</code>. <strong>Deduplicated across the whole corpus</strong>: the same doctor appears in a file for every patient they treated, so 2,980 records become 1,036 rows.</p></div></div>
+      <div class="stage"><div class="pass">pass 1</div><div><h4>People</h4><p>Patient → <code>person</code>. Builds the index from FHIR patient id to the <code>person_id</code> this pipeline assigns.</p></div></div>
+      <div class="stage"><div class="pass">pass 2</div><div><h4>Visits</h4><p>Encounter → <code>visit_occurrence</code>. Needs pass 1 (a visit belongs to a patient) and pass 0 (it happened at a hospital, with a doctor). Builds the visit index.</p></div></div>
+      <div class="stage"><div class="pass">pass 3a–3h</div><div><h4>Everything clinical</h4><p>Conditions, observations, procedures, prescriptions, administrations, vaccines, allergies, devices. Each needs both indexes.</p></div></div>
+      <div class="stage"><div class="pass">pass 4</div><div><h4>Derived tables</h4><p><code>observation_period</code>, <code>drug_era</code>, <code>condition_era</code>. Computed from every event already loaded, so they must come last.</p></div></div>
+    </div>
+
+    <h3>The rule that governs every mapping</h3>
+    <p>This is the single most counterintuitive thing in the system, and it appears in five different modules:</p>
+
+    <div class="aside">The destination table is decided by the <strong>domain of the concept</strong>, not by the type of the FHIR resource that carried it.</div>
+
+    <p>A FHIR <code>Condition</code> does not always become a <code>condition_occurrence</code>. "Normal pregnancy" arrives as a Condition and is an <em>Observation</em> in OMOP. A FHIR <code>Procedure</code> often is not a procedure either:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Arrived as</th><th class="num">Resources</th><th>Went to</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Procedure</td><td class="num">36,451</td><td class="mono">procedure_occurrence</td><td class="num">28,401</td></tr>
+          <tr><td></td><td></td><td class="mono">measurement</td><td class="num">7,528</td></tr>
+          <tr><td></td><td></td><td class="mono">observation</td><td class="num">522</td></tr>
+          <tr><td class="mono">Condition</td><td class="num">8,766</td><td class="mono">condition_occurrence</td><td class="num">8,583</td></tr>
+          <tr><td></td><td></td><td class="mono">observation</td><td class="num">183</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Getting this wrong produces no error. The rows insert, every key resolves, and prevalence queries return a wrong denominator forever.</p>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section class="module" id="s5">
+  <div class="module-head">
+    <div class="module-num">05</div>
+    <div><h2>What it produced, table by table</h2>
+    <p class="sub">Everything in <code style="font-size:0.8em">data/omop/omop.duckdb</code>, and what each table holds.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>Clinical data</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Holds</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">person</td><td>One row per patient. Demographics only — no clinical facts.</td><td class="num">1,180</td></tr>
+          <tr><td class="mono">visit_occurrence</td><td>Every encounter. Most clinical facts hang off one.</td><td class="num">46,868</td></tr>
+          <tr><td class="mono">condition_occurrence</td><td>Diagnoses.</td><td class="num">8,583</td></tr>
+          <tr><td class="mono">measurement</td><td>Anything with a number and a unit — labs, vitals.</td><td class="num">253,867</td></tr>
+          <tr><td class="mono">observation</td><td>Qualitative facts: allergies, smoking status, survey answers.</td><td class="num">14,862</td></tr>
+          <tr><td class="mono">procedure_occurrence</td><td>Things done to the patient.</td><td class="num">28,401</td></tr>
+          <tr><td class="mono">drug_exposure</td><td>Prescriptions, administrations and vaccines together.</td><td class="num">30,041</td></tr>
+          <tr><td class="mono">device_exposure</td><td>Implants and devices.</td><td class="num">58</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Who and where</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Holds</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">provider</td><td>Clinicians. Deduplicated from 2,980 source records.</td><td class="num">1,036</td></tr>
+          <tr><td class="mono">care_site</td><td>Hospitals and clinics.</td><td class="num">1,035</td></tr>
+          <tr><td class="mono">location</td><td>Addresses, deduplicated by content since FHIR gives them no id.</td><td class="num">970</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Derived — computed, not read from anywhere</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Holds</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">observation_period</td><td>When each person was observable. The denominator.</td><td class="num">1,180</td></tr>
+          <tr><td class="mono">drug_era</td><td>Continuous treatment episodes, per drug ingredient.</td><td class="num">11,205</td></tr>
+          <tr><td class="mono">condition_era</td><td>Continuous disease episodes.</td><td class="num">8,450</td></tr>
+          <tr><td class="mono">cohort</td><td>Generated study populations.</td><td class="num">406</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Traceability</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Table</th><th>Holds</th><th class="num">Rows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">_etl_provenance</td><td><strong>Not part of the CDM — this one is ours.</strong> One row per CDM row, naming the source file, resource type and resource id that produced it.</td><td class="num">385,931</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>That last table is the difference between a pipeline someone can audit and one they have to trust. Any row in the database can be traced back to the exact FHIR resource it came from.</p>
+
+    <div class="code">
+      <div class="cap">tracing a row back to its source</div>
+<pre>SELECT p.person_id, p.person_source_value, e.source_file, e.source_resource
+FROM   person p
+JOIN   _etl_provenance e
+  ON   e.cdm_table = 'person' AND e.cdm_pk = p.person_id
+LIMIT  3;</pre>
+    </div>
+
+    <h3>The 21 empty tables</h3>
+    <p>The CDM defines about 40 tables. This pipeline fills 19 and creates the rest empty — <code>death</code>, <code>note</code>, <code>specimen</code>, <code>cost</code>, <code>payer_plan_period</code> and so on. That is deliberate: OHDSI tools treat a missing table as an error, but an empty one as a legitimate answer. "This site records no specimens" is a real and common fact about a dataset.</p>
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section class="module" id="s6">
+  <div class="module-head">
+    <div class="module-num">06</div>
+    <div><h2>The derived tables</h2>
+    <p class="sub">Three tables with no FHIR counterpart, and the reasoning behind each.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>observation_period — the denominator</h3>
+    <p>A rate is one number divided by another. For "what fraction of people have hypertension": the top is people with the diagnosis, the bottom is people who <em>could</em> have been diagnosed.</p>
+
+    <p>The top is easy to count. The bottom is a judgement, and it is what this table answers. Someone who appears in your data for a single day was never realistically going to be diagnosed with anything — counting them in the denominator makes every rate look too low.</p>
+
+    <p><strong>Nothing in FHIR says when a person was observable.</strong> It has to be derived. This pipeline uses first-to-last recorded event across every domain table, which is the usual convention for EHR-derived data and is a <em>floor</em>, not a truth: it cannot see that a patient moved away three years before their last visit.</p>
+
+    <p>The CDM lets you record which method you used, and this one says so honestly — <code>period_type_concept_id = 32882</code>, "Standard algorithm from EHR".</p>
+
+    <h3>drug_era — treatment episodes</h3>
+    <p>Twelve monthly prescriptions of the same drug are twelve rows in <code>drug_exposure</code>. Clinically they are <em>one twelve-month course of treatment</em>. Counting rows tells you about prescribing; counting eras tells you about <strong>exposure</strong> — and nearly every question worth asking is about exposure.</p>
+
+    <p>Two mechanisms build them:</p>
+    <ul>
+      <li><strong>A 30-day persistence window.</strong> Exposures closer together than that are one era; a longer gap starts a new one. It tolerates a late refill without merging courses of treatment years apart.</li>
+      <li><strong>Ingredient rollup.</strong> Drugs arrive as "Lisinopril 10 MG Tablet", branded packs, quantified forms. Eras are built at the <em>ingredient</em> level via <code>concept_ancestor</code>, so every form of one drug collapses into a single era.</li>
+    </ul>
+
+    <p>What that reveals in this data:</p>
+
+    <div class="code">
+      <div class="cap">exposures collapsing into eras</div>
+<pre>ingredient      exposures   eras   avg era days
+cisplatin             880    473             24   <s>← chemo cycling</s>
+paclitaxel            844    475             22
+simvastatin         2,363  2,360              0   <s>← see below</s>
+
+longest single episode:
+epoetin alfa    <b>1,214 scripts across 10 years in one era</b></pre>
+    </div>
+
+    <p>Chemotherapy collapses nearly 2:1 because those administrations genuinely cluster within days. The epoetin alfa case is a dialysis patient on continuous treatment — 1,214 unremarkable rows in <code>drug_exposure</code>, one decade-long course as an era.</p>
+
+    <div class="warn">
+      <span class="tag">Why simvastatin does not collapse</span>
+      <p>Synthea supplies no dispense duration, so every <code>drug_exposure</code> has an end date equal to its start. A statin prescribed annually is a point event 365 days from the next one — well outside the 30-day window — so it correctly forms separate eras.</p>
+      <p>With real dispensing data carrying <code>days_supply</code>, simvastatin would form multi-year eras. That one missing field is the difference between eras that describe treatment and eras that just re-describe prescriptions.</p>
+    </div>
+
+    <h3>condition_era</h3>
+    <p>The same collapsing applied to diagnoses, with no rollup — there is no diagnosis equivalent of a drug ingredient, so it uses the concept directly.</p>
+  </div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section class="module" id="s7">
+  <div class="module-head">
+    <div class="module-num">07</div>
+    <div><h2>Running it: every command</h2>
+    <p class="sub">In order, with what each one expects and produces.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>Setup — once</h3>
+    <div class="code">
+      <div class="cap">python environment</div>
+<pre>cd ~/Desktop/fhir_omop
+uv venv
+uv pip install -e ".[dev]"</pre>
+    </div>
+
+    <div class="code">
+      <div class="cap">R packages — only needed for quality checks and cohorts</div>
+<pre>Rscript -e 'install.packages(c("DatabaseConnector","duckdb","CirceR",
+                               "CohortGenerator","remotes"))'
+Rscript -e 'remotes::install_github(c("OHDSI/DataQualityDashboard",
+                                      "OHDSI/Capr"), upgrade="never")'</pre>
+    </div>
+
+    <h3>1 · Load the vocabulary</h3>
+    <p>Requires a free <a href="https://athena.ohdsi.org/">Athena</a> account. Select SNOMED, LOINC, RxNorm, RxNorm Extension, ATC, CVX, ICD10, OMOP Extension, Gender, Race and Ethnicity. Skip CPT4 — it needs a separate UMLS licence and an extra tool.</p>
+
+    <div class="code">
+      <div class="cap">~40 seconds · produces data/omop/vocab.duckdb (3.2 GB)</div>
+<pre>python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip</pre>
+    </div>
+
+    <p>To add vocabularies you forgot, without rebuilding the whole thing:</p>
+    <div class="code">
+<pre>python scripts/load_athena_vocab.py --zip ~/Downloads/topup.zip <b>--merge</b></pre>
+    </div>
+
+    <h3>2 · Run the conversion</h3>
+    <div class="code">
+      <div class="cap">~8 minutes · produces data/omop/omop.duckdb (2.6 GB)</div>
+<pre>python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb</pre>
+    </div>
+
+    <p>To try it quickly on the two committed sample files instead:</p>
+    <div class="code">
+<pre>python scripts/run_etl.py --fhir data/fhir/fixtures</pre>
+    </div>
+
+    <h3>3 · Run the tests</h3>
+    <div class="code">
+      <div class="cap">under 2 seconds · needs no database</div>
+<pre>pytest</pre>
+    </div>
+
+    <h3>4 · Run the standardised quality checks</h3>
+    <div class="code">
+      <div class="cap">~30 seconds · produces results/dqd/</div>
+<pre>Rscript scripts/make_thresholds.R   <s># once, generates the override file</s>
+Rscript scripts/run_dqd.R</pre>
+    </div>
+
+    <p>Then open the dashboard in R. <strong>The path must be absolute</strong> — a relative one silently renders an empty page:</p>
+    <div class="code">
+<pre>DataQualityDashboard::viewDqDashboard(
+  "<b>/Users/aryakadakia/Desktop/fhir_omop</b>/results/dqd/dqd-results.json")</pre>
+    </div>
+
+    <h3>5 · Generate cohorts</h3>
+    <div class="code">
+      <div class="cap">seconds · produces cohorts/*.json, cohorts/*.sql, and a cohort table</div>
+<pre>Rscript scripts/build_cohorts.R</pre>
+    </div>
+
+    <h3>Querying the result directly</h3>
+    <div class="code">
+      <div class="cap">any DuckDB client</div>
+<pre>duckdb -readonly data/omop/omop.duckdb</pre>
+    </div>
+
+    <div class="note">
+      <span class="tag">One operational rule</span>
+      <p>DuckDB takes an <strong>exclusive write lock</strong>. Only one process can write to a database file at a time — a second ETL run started while the first is going will fail with a lock error. Read-only connections are unlimited, so querying while a load runs is fine.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 ============ -->
+<section class="module" id="s8">
+  <div class="module-head">
+    <div class="module-num">08</div>
+    <div><h2>Reading the output</h2>
+    <p class="sub">The ETL prints four blocks. Here is what each means.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>Block 1 — what came in and what went out</h3>
+    <div class="code">
+<pre>FHIR resources read:
+  Condition                 8766
+  Observation             259929
+  ...
+CDM rows written:
+  condition_occurrence      8583
+  measurement             253867
+  ...
+rejected: 0</pre>
+    </div>
+
+    <p>Counts will not match between the two lists, and should not. Resources get routed to different tables by domain, some are excluded by status, and several FHIR types feed one CDM table. <strong><code>rejected: 0</code> is the number to watch</strong> — a rejection means a resource could not be loaded at all, and each one is listed with a reason.</p>
+
+    <h3>Block 2 — mapping issues, by frequency</h3>
+    <div class="code">
+<pre>  14102  no dispense duration in source; end_date set to start_date
+   5561  non-standard 3030354 mapped to standard 46236952
+    388  non-standard 40316773 mapped to standard 37018196
+    300  concept 40213291 is domain 'Drug'; no target table, concept set to 0</pre>
+    </div>
+
+    <p>These are <strong>not errors</strong>. They are decisions the pipeline made and is telling you about. The second and third lines are the <code>Maps to</code> machinery working — deprecated codes being redirected. The fourth is the domain rule refusing to put a concept in a table where it does not belong.</p>
+
+    <h3>Block 3 — data quality checks</h3>
+    <div class="code">
+<pre>  [     PASS] conformance  condition_concept_in_condition_domain
+  [     PASS] plausibility events_within_observation_period
+  [FAIL (102)] conformance  observation_concept_in_observation_domain</pre>
+    </div>
+
+    <p>36 checks in three categories:</p>
+    <ul>
+      <li><strong>Conformance</strong> — does the data obey the CDM's structural rules? Answerable without knowing anything about the source.</li>
+      <li><strong>Completeness</strong> — is a required value present, and how much did not map?</li>
+      <li><strong>Plausibility</strong> — could this be true of a real person? Dates in order, events after birth, eras not overlapping.</li>
+    </ul>
+
+    <h3>Block 4 — unmapped rates</h3>
+    <div class="code">
+<pre>  condition_occurrence.condition_concept_id     109/8583   (1.3% unmapped)
+  measurement.measurement_concept_id              0/253867 (0.0% unmapped)
+  drug_exposure.drug_concept_id                  22/30041  (0.1% unmapped)
+  person.race_concept_id                       1180/1180   (100.0% unmapped)</pre>
+    </div>
+
+    <div class="aside">This is the single most useful number in the whole report, and the reason it is a headline rather than a footnote: <strong>a pipeline can pass every structural check while mapping almost nothing.</strong> Only this figure reveals it.</div>
+
+    <p>"Unmapped" means the concept resolved to <code>0</code> — OMOP's reserved value for "no matching concept". That is the correct, specification-compliant way to say a code did not translate. Guessing a plausible concept instead is how a dataset becomes quietly and permanently wrong.</p>
+
+    <p>The race and ethnicity figure of 100% is a <em>decision</em>, explained in section 13.</p>
+  </div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section class="module" id="s9">
+  <div class="module-head">
+    <div class="module-num">09</div>
+    <div><h2>Quality checking</h2>
+    <p class="sub">Two suites, doing different jobs.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>The built-in suite — 36 checks</h3>
+    <p>Runs automatically at the end of every ETL. Fast, specific to the decisions this pipeline makes, and each check exists because something could plausibly go wrong there. Written in <code>src/fhir_omop/dq.py</code>, and each returns a count of violations so zero always means pass.</p>
+
+    <h3>The OHDSI Data Quality Dashboard — 2,533 checks</h3>
+    <p>The community-standard suite, generated from about twenty check types applied across every table, field and concept the CDM defines. Same three categories, vastly more coverage.</p>
+
+    <div class="stats">
+      <div class="stat"><span class="n">2,533</span><span class="l">checks run</span></div>
+      <div class="stat"><span class="n">2,530</span><span class="l">pass</span></div>
+      <div class="stat"><span class="n">2</span><span class="l">fail — both explained</span></div>
+      <div class="stat"><span class="n">1</span><span class="l">errors — upstream bug</span></div>
+    </div>
+
+    <h3>What "fail" means here — it is not what you think</h3>
+    <p>Every DQD check has a <strong>threshold</strong>: the percentage of violating rows it tolerates. A check fails when violations exceed that. It is not "this is broken", it is "this exceeds the tolerance the community judged reasonable".</p>
+
+    <p>That distinction matters enormously in practice. When DQD was first run against this database it reported nine failures. <strong>Only one was a defect.</strong> Six were a threshold that does not apply to this dataset — DQD flags clinical dates before 1950 as implausible, and Synthea generates complete lifetimes, so patients born in the 1910s legitimately have pre-1950 records. Two were units genuinely absent from OMOP's vocabulary.</p>
+
+    <div class="warn">
+      <span class="tag">The skill this teaches</span>
+      <p>Reading a check suite <em>critically</em> is the actual skill. Chasing all nine failures to green would have meant fabricating units and truncating real patient history.</p>
+      <p>But ignoring a red check and overriding it with a recorded reason look identical in the dashboard. Only one of them answers "why is this failing?" when someone opens it in six months. That is what <code>scripts/make_thresholds.R</code> is for — it regenerates the override from DQD's own defaults, changes exactly one thing, and writes the reason into the file.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section class="module" id="s10">
+  <div class="module-head">
+    <div class="module-num">10</div>
+    <div><h2>Cohorts: asking it questions</h2>
+    <p class="sub">The thing the whole pipeline exists to enable.</p></div>
+  </div>
+
+  <div class="body">
+    <p>A <strong>cohort</strong> is the atom of observational research: the set of people meeting some criteria, over some period. Every study in this field is cohorts compared against cohorts.</p>
+
+    <p>Three are defined in <code>scripts/build_cohorts.R</code>:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cohort</th><th>Definition</th><th class="num">People</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">hypertension_adults</td><td>Adults, first hypertensive disorder, 365 days prior observation</td><td class="num">173</td></tr>
+          <tr><td class="mono">t2dm_any</td><td>First type 2 diabetes diagnosis, 365 days prior observation</td><td class="num">95</td></tr>
+          <tr><td class="mono">hctz_new_users</td><td>First exposure to hydrochlorothiazide</td><td class="num">138</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Why R and not ATLAS</h3>
+    <p>ATLAS is the web interface most OHDSI work is done through. Its backend does not support DuckDB — only PostgreSQL, SQL Server, Oracle, Redshift and Snowflake — so running it would mean migrating everything to Postgres and standing up three Docker containers.</p>
+
+    <p><strong>Capr drives the same engine ATLAS does</strong> (<code>circe-be</code>) and emits the same cohort JSON. CirceR compiles it with the same compiler. The only difference is that here the JSON and the generated SQL are visible files you can read, instead of being hidden behind a UI.</p>
+
+    <div class="code">
+      <div class="cap">a definition, in R</div>
+<pre>hypertension &lt;- cs(descendants(<b>316866</b>), name = "Hypertensive disorder")
+
+hypertension_adults &lt;- cohort(
+  entry = entry(
+    conditionOccurrence(hypertension, <i>age(gte(18))</i>),
+    observationWindow = <i>continuousObservation(priorDays = 365)</i>,
+    primaryCriteriaLimit = "First"
+  ),
+  exit = exit(endStrategy = observationExit())
+)</pre>
+    </div>
+
+    <p>That 1.3 KB definition compiles to 13 KB of SQL. The top of the generated file is a temp table doing the <code>concept_ancestor</code> join that turns one concept into all 139 of its descendants.</p>
+
+    <h3>What generating them revealed</h3>
+
+    <p><strong>The age criterion excludes nobody.</strong> Every hypertensive patient in this data is already an adult at first diagnosis. The entire reduction from 341 people with hypertension to 173 in the cohort is the <em>365-day prior-observation requirement</em> — which is the criterion that makes this an incident cohort rather than a prevalent one.</p>
+
+    <div class="warn">
+      <span class="tag">The same words, two different cohorts</span>
+      <p>A hand-written version of this query returns <strong>171</strong>. Capr returns <strong>173</strong>. Neither is wrong.</p>
+      <p>"First diagnosis with 365 days of prior observation" has two readings. Take the earliest diagnosis and then test whether it qualifies → 171. Keep only diagnoses that qualify and then take the earliest → 173.</p>
+      <p>Two people have an early diagnosis without enough prior observation <em>and</em> a later qualifying one. Under one reading they are excluded; under the other they are included with a later index date — which shifts every follow-up window and every outcome look-back for them.</p>
+      <p>This is the real argument for using the standard engine. Not that it is faster, but that it commits to one interpretation — the same one every other OHDSI study uses. Your 173 is comparable to someone else's 173.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 ============ -->
+<section class="module" id="s11">
+  <div class="module-head">
+    <div class="module-num">11</div>
+    <div><h2>Extending it</h2>
+    <p class="sub">Adding a new FHIR resource type, step by step.</p></div>
+  </div>
+
+  <div class="body">
+    <p>Every mapping module has the same shape, so adding one is mechanical. Roughly 150 lines plus tests.</p>
+
+    <ol>
+      <li><strong>Look at the actual resource first.</strong> Not the specification — a real example from your data. Check which field names it uses for patient and encounter, which status values appear, and which date fields are present. Every resource type differs.</li>
+      <li><strong>Write the module</strong> in <code>src/fhir_omop/mappings/</code>. Use <code>references.resolve()</code> for every reference and <code>vocab.resolve_to_standard()</code> for every code — never reimplement either.</li>
+      <li><strong>Guard the domain.</strong> Check the resolved concept's <code>domain_id</code> and route accordingly. If there is no table for that domain, keep the fact and set the concept to <code>0</code>.</li>
+      <li><strong>Verify any concept id you hardcode</strong> against the loaded vocabulary before using it. Three non-standard type concepts shipped in this project because they were taken from memory rather than checked.</li>
+      <li><strong>Wire it into <code>etl.py</code></strong> as a new pass 3 stage, and add the insert statement to <code>INSERT_SQL</code>.</li>
+      <li><strong>Add quality checks</strong> to <code>dq.py</code>: a person foreign key, a domain check, and a date-order check at minimum.</li>
+      <li><strong>Write the tests before committing</strong>, not after. Four modules once shipped untested here and a coverage audit had to catch them.</li>
+    </ol>
+
+    <h3>The traps, collected</h3>
+    <p>These cost real debugging time and will cost you the same:</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Resource</th><th>Patient field</th><th>Encounter field</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Condition, Observation, Procedure</td><td class="mono">.subject</td><td class="mono">.encounter</td></tr>
+          <tr><td class="mono">Immunization</td><td class="mono"><strong>.patient</strong></td><td class="mono">.encounter</td></tr>
+          <tr><td class="mono">AllergyIntolerance, Device</td><td class="mono"><strong>.patient</strong></td><td>—</td></tr>
+          <tr><td class="mono">MedicationAdministration</td><td class="mono">.subject</td><td class="mono"><strong>.context</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>FHIR has no single field name for "the patient this is about". Assuming otherwise silently orphans every row of that type — and orphans are rejected, so you get a clean run with an empty result and no error.</p>
+  </div>
+</section>
+
+<!-- ============ 12 ============ -->
+<section class="module" id="s12">
+  <div class="module-head">
+    <div class="module-num">12</div>
+    <div><h2>Troubleshooting</h2>
+    <p class="sub">Every failure actually hit during construction.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>"Could not set lock on file … Conflicting lock is held"</h3>
+    <p>Two processes are trying to write the same DuckDB file. Find and stop the other one:</p>
+    <div class="code">
+<pre>ps aux | grep run_etl
+kill &lt;pid&gt;
+rm -f data/omop/*.wal   <s># if a stale write-ahead log remains</s></pre>
+    </div>
+
+    <h3>The dashboard opens but every panel is empty</h3>
+    <p>You gave <code>viewDqDashboard</code> a relative path. It stores the path, then Shiny changes the working directory before reading it, so the file is looked for inside the R package. The JSON parse fails and the app renders its shell with no error at all. Use an absolute path.</p>
+
+    <h3>Everything is 100% unmapped</h3>
+    <p>Almost always the vocabulary. Either it was not passed (<code>--vocab</code>), or it does not contain the vocabulary that codes are arriving in. Check what is actually loaded:</p>
+    <div class="code">
+<pre>duckdb -readonly data/omop/vocab.duckdb \
+  -c "SELECT vocabulary_id, count(*) FROM base.concept GROUP BY 1 ORDER BY 2 DESC;"</pre>
+    </div>
+    <p>This exact situation produced 15,013 unmapped immunizations, because CVX had not been selected in the Athena download.</p>
+
+    <h3>A whole resource type produces zero rows</h3>
+    <p>The reference field is wrong — see the table in section 11. Rejections are reported, so check the rejected list for "unresolved subject".</p>
+
+    <h3>A DQD check errors rather than fails</h3>
+    <p>Errors are plumbing, not findings. One check fails to compile here: its SQL uses <code>DATE + INTERVAL</code>, an operation provided by DuckDB's ICU extension, which DatabaseConnector installs but never loads. One check in 2,533, on a metadata field, and an upstream issue rather than a data problem.</p>
+
+    <h3>A concept id you hardcoded does not work</h3>
+    <p>Check whether it is standard. Non-standard concepts produce no error and no match:</p>
+    <div class="code">
+<pre>SELECT concept_id, concept_name, standard_concept, invalid_reason
+FROM   concept WHERE concept_id = <b>38000177</b>;
+
+<s>-- standard_concept = NULL means it will never match a cohort definition</s></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 13 ============ -->
+<section class="module" id="s13">
+  <div class="module-head">
+    <div class="module-num">13</div>
+    <div><h2>Known limits</h2>
+    <p class="sub">Deliberate decisions, not defects. Recorded so nobody mistakes them for either.</p></div>
+  </div>
+
+  <div class="body">
+    <h3>Race and ethnicity are 100% unmapped, by decision</h3>
+    <p>CDM 5.4 marks both as required fields. But the race extension Synthea emits is a <em>US</em> construct, and <strong>Australia's FHIR profile has no race extension at all</strong> — Australian data records Indigenous status under a different model that does not map onto OMOP's race/ethnicity pair.</p>
+    <p>Setting both to <code>0</code> is the honest answer. Inventing categories would produce breakdowns that describe the ETL rather than the population.</p>
+
+    <h3>Drug exposures have no duration</h3>
+    <p>Synthea supplies no dispense duration, so <code>drug_exposure_end_date</code> equals its start. This understates exposure and is why chronic medications form no long eras. Real dispensing data with <code>days_supply</code> would change this substantially.</p>
+
+    <h3>Vaccines produce no drug eras</h3>
+    <p>CVX vaccine concepts are outside the RxNorm ingredient hierarchy, so 15,013 immunizations roll up to nothing. That is the standard OHDSI definition, not an omission — but it means <code>drug_era</code> covers a strict subset of <code>drug_exposure</code> and their counts will never reconcile.</p>
+
+    <h3>observation_period is inferred, not observed</h3>
+    <p>Derived from first-to-last event. A floor, not a truth. Claims data supports a better derivation because enrolment spans are recorded explicitly.</p>
+
+    <h3>Some units cannot be mapped</h3>
+    <p>OMOP's UCUM vocabulary is about 1,130 concepts and does not include enzyme units (<code>U/L</code>) or annotation units (<code>{score}</code>). Roughly 29,800 measurements carry a value with no resolvable unit. Not fixable without inventing data.</p>
+
+    <h3>What is not mapped at all</h3>
+    <ul>
+      <li><strong>Claim and ExplanationOfBenefit</strong> — billing data, mapping to <code>cost</code> and <code>payer_plan_period</code>. Health economics, and a project of its own.</li>
+      <li><strong>DiagnosticReport</strong> — a grouping resource whose member observations are already mapped. Largely redundant in OMOP, which has no equivalent table.</li>
+      <li><strong>CarePlan, CareTeam, Goal, ImagingStudy</strong> — no clean home in CDM 5.4 core.</li>
+    </ul>
+
+    <div class="aside">One theme runs through every defect this project hit, and it is worth carrying forward: <strong>almost none of them raised an error.</strong> The rows inserted, the foreign keys resolved, the tests passed, and the numbers were quietly wrong. That is why the check suites exist, why unmapped rates are a headline number, and why testing against a realistically-sized vocabulary matters more than testing against a convenient one.</div>
+  </div>
+</section>
+
+<p class="foot">Built against Synthea FHIR R4 sample data — 1,180 synthetic patients, no real patient data — loaded into OMOP CDM 5.4 with the OHDSI Athena vocabulary v5.0 29-AUG-26. All figures are from an actual run. Companion documents: <code>docs/course.html</code> for the concepts, <code>docs/bugs-found.md</code> for every defect found and how.</p>
+
+</div>

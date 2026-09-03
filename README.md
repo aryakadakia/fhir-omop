@@ -47,6 +47,18 @@ either bugs or correctness.
 
 The pattern worth taking from it: almost none of these raised an error.
 
+## The manual
+
+[`docs/manual.html`](docs/manual.html) is the operator's manual: what every
+file does, how the nine-pass ETL works, what each CDM table holds, every
+command with what it expects and produces, how to read the output, how to
+extend it with a new resource type, and a troubleshooting section covering
+every failure actually hit while building it. Written for a reader who has
+never seen either standard.
+
+Also published at
+<https://claude.ai/code/artifact/790f712d-55a1-4bc9-998d-29b834f1ee52>
+
 ## The course
 
 `docs/course.html` is a written course on both standards, taught against this
