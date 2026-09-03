@@ -225,6 +225,48 @@ CHECKS: list[Check] = [
         "WHERE drug_exposure_end_date < drug_exposure_start_date",
     ),
     Check(
+        "drug_era_end_after_start",
+        "plausibility",
+        "drug_era_end_date must not precede its start",
+        "SELECT count(*) FROM drug_era WHERE drug_era_end_date < drug_era_start_date",
+    ),
+    Check(
+        "condition_era_end_after_start",
+        "plausibility",
+        "condition_era_end_date must not precede its start",
+        "SELECT count(*) FROM condition_era "
+        "WHERE condition_era_end_date < condition_era_start_date",
+    ),
+    Check(
+        "drug_era_concept_is_ingredient",
+        "conformance",
+        "drug_era_concept_id must be an RxNorm Ingredient",
+        "SELECT count(*) FROM drug_era e JOIN concept c "
+        "ON c.concept_id = e.drug_concept_id "
+        "WHERE c.concept_class_id <> 'Ingredient'",
+    ),
+    Check(
+        "eras_do_not_overlap",
+        "conformance",
+        "two eras for the same person and concept must not overlap",
+        """
+        SELECT count(*) FROM drug_era a JOIN drug_era b
+          ON a.person_id = b.person_id
+         AND a.drug_concept_id = b.drug_concept_id
+         AND a.drug_era_id < b.drug_era_id
+        WHERE a.drug_era_end_date >= b.drug_era_start_date
+          AND a.drug_era_start_date <= b.drug_era_end_date
+        """,
+    ),
+    Check(
+        "era_person_fk",
+        "conformance",
+        "every era person_id exists in person",
+        "SELECT count(*) FROM ("
+        "  SELECT person_id FROM drug_era UNION ALL SELECT person_id FROM condition_era"
+        ") e LEFT JOIN person p ON p.person_id = e.person_id WHERE p.person_id IS NULL",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",

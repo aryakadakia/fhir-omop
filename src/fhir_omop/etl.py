@@ -25,7 +25,7 @@ import duckdb
 
 from fhir_omop import ddl
 from fhir_omop.vocab import clear_caches
-from fhir_omop.mappings import observation_period
+from fhir_omop.mappings import eras, observation_period
 from fhir_omop.mappings.condition import map_condition, subject_id
 from fhir_omop.mappings.drug import map_medication_request
 from fhir_omop.mappings.immunization import map_immunization, patient_id
@@ -57,6 +57,9 @@ class LoadReport:
     rejected: list[tuple[str, str]] = field(default_factory=list)
     issues: Counter = field(default_factory=Counter)
     observation_periods: int = 0
+    drug_eras: int = 0
+    condition_eras: int = 0
+    exposures_rolled_up: int = 0
 
     def summary(self) -> str:
         lines = ["FHIR resources read:"]
@@ -66,6 +69,9 @@ class LoadReport:
         for name, count in sorted(self.loaded.items()):
             lines.append(f"  {name:<22} {count:>7}")
         lines.append(f"  {'observation_period':<22} {self.observation_periods:>7}")
+        lines.append(f"  {'drug_era':<22} {self.drug_eras:>7}"
+                     f"   (from {self.exposures_rolled_up:,} exposures with an ingredient)")
+        lines.append(f"  {'condition_era':<22} {self.condition_eras:>7}")
         lines.append(f"rejected: {len(self.rejected)}")
         return "\n".join(lines)
 
@@ -269,8 +275,11 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
                   "observation", "measurement", "drug_exposure"):
         report.loaded[table] = ids[table]
 
-    # ---- pass 4: derive observation_period ---------------------------------
+    # ---- pass 4: derive observation_period and eras -------------------------
+    # All three are functions of every event already loaded, so they run last.
     report.observation_periods = observation_period.derive(con)
+    report.drug_eras, report.exposures_rolled_up = eras.derive_drug_era(con)
+    report.condition_eras = eras.derive_condition_era(con)
 
     con.close()
     return report

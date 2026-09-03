@@ -197,6 +197,35 @@ CREATE TABLE IF NOT EXISTS observation_period (
 );
 """
 
+# CDM 5.4 `drug_era`. Continuous periods of exposure to a single INGREDIENT,
+# built by collapsing drug_exposure records that are close enough together to
+# be treated as one course of treatment.
+DRUG_ERA = """
+CREATE TABLE IF NOT EXISTS drug_era (
+    drug_era_id          BIGINT  NOT NULL,
+    person_id            BIGINT  NOT NULL,
+    drug_concept_id      INTEGER NOT NULL,
+    drug_era_start_date  DATE    NOT NULL,
+    drug_era_end_date    DATE    NOT NULL,
+    drug_exposure_count  INTEGER,
+    gap_days             INTEGER
+);
+"""
+
+# CDM 5.4 `condition_era`. The same collapsing applied to conditions. No
+# rollup: conditions use their own concept, because there is no equivalent of
+# the ingredient hierarchy for diagnoses.
+CONDITION_ERA = """
+CREATE TABLE IF NOT EXISTS condition_era (
+    condition_era_id            BIGINT  NOT NULL,
+    person_id                   BIGINT  NOT NULL,
+    condition_concept_id        INTEGER NOT NULL,
+    condition_era_start_date    DATE    NOT NULL,
+    condition_era_end_date      DATE    NOT NULL,
+    condition_occurrence_count  INTEGER
+);
+"""
+
 ALL = [
     PERSON,
     OBSERVATION_PERIOD,
@@ -205,5 +234,7 @@ ALL = [
     OBSERVATION,
     MEASUREMENT,
     DRUG_EXPOSURE,
+    DRUG_ERA,
+    CONDITION_ERA,
     ETL_PROVENANCE,
 ]
