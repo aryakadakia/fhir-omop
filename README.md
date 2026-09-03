@@ -37,6 +37,16 @@ drugs 0.1%, visits 0.0%, gender 0.0%.
 Not yet implemented: era tables (`drug_era`, `condition_era`), `Procedure` →
 `procedure_occurrence`, `DocumentReference` → `note`.
 
+## What went wrong, and how it was found
+
+[`docs/bugs-found.md`](docs/bugs-found.md) records every defect found building
+this, grouped by how it surfaced — by a data-quality check, by auditing an
+assumption, by testing against real data, or before it could do damage. It also
+lists the known limitations that are *not* defects, so nobody mistakes them for
+either bugs or correctness.
+
+The pattern worth taking from it: almost none of these raised an error.
+
 ## The course
 
 `docs/course.html` is a written course on both standards, taught against this
