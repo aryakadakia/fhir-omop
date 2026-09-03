@@ -230,7 +230,26 @@ precision, because a guessed birth datetime is worse than an absent one.
 *Guarded by:* `birth_datetime_matches_birth_date_parts` plus
 `TestBirthDatetime`.
 
-### 14. A path bug in the DQD runner itself
+### 14. One DQD check errors on DuckDB — an upstream issue, not ours
+
+`plausibleValueHigh` on `CDM_SOURCE.CDM_RELEASE_DATE` fails to compile:
+
+```
+Binder Error: No function matches the given name and argument types '(DATE, INTERVAL)'
+  cast((CURRENT_DATE + TO_DAYS(CAST(1 AS INTEGER))) as date)
+```
+
+The `DATE + INTERVAL` overload is provided by DuckDB's **ICU extension**.
+Verified by reproducing it both ways in a bare R DuckDB session: the
+expression fails without ICU and succeeds once `LOAD icu` has run. The same
+SQL works in the DuckDB CLI, which autoloads extensions.
+
+DatabaseConnector `INSTALL`s ICU on connect but does not `LOAD` it, and LOAD
+is per-session. One check in 2,533, on a metadata field, so not worth working
+around locally — but it is a small, well-scoped upstream contribution if
+anyone wants one.
+
+### 15. A path bug in the DQD runner itself
 
 `csvFile` is resolved relative to `outputFolder`, so passing a full path
 produced `results/dqd/results/dqd/...` and the CSV write failed — with a

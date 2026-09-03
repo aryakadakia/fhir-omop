@@ -29,6 +29,14 @@ cat("output   :", normalizePath(output_folder), "\n\n")
 
 # DuckDB is addressed through DatabaseConnector's DBI path. The file itself is
 # the "server"; DuckDB's default schema is `main`.
+#
+# One check (plausibleValueHigh on CDM_SOURCE.CDM_RELEASE_DATE) errors out of
+# 2,533. Its generated SQL is `CURRENT_DATE + TO_DAYS(...)`, and the DATE +
+# INTERVAL overload comes from DuckDB's ICU extension. DatabaseConnector
+# INSTALLs ICU but does not LOAD it on the connection, and LOAD is per-session,
+# so the overload is unavailable. Verified by reproducing both ways in a bare
+# R DuckDB session. Not a data problem, and 1/2533 is not worth working
+# around -- but it is a well-scoped upstream fix if you ever want one.
 connectionDetails <- DatabaseConnector::createConnectionDetails(
   dbms   = "duckdb",
   server = db_path
