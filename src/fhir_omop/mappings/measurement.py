@@ -23,8 +23,10 @@ from fhir_omop.vocab import (
     resolve_to_standard,
 )
 
+# Both verified standard. OBSERVATION_TYPE_EHR previously used 38000280
+# "Observation recorded from EHR", which is non-standard.
 MEASUREMENT_TYPE_EHR = 32817
-OBSERVATION_TYPE_EHR = 38000280
+OBSERVATION_TYPE_EHR = 32817
 
 # Observation.status values that must not be loaded.
 EXCLUDED_STATUSES = {"entered-in-error", "cancelled"}

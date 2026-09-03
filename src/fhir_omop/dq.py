@@ -267,6 +267,31 @@ CHECKS: list[Check] = [
         ") e LEFT JOIN person p ON p.person_id = e.person_id WHERE p.person_id IS NULL",
     ),
     Check(
+        "all_type_concepts_are_standard",
+        "conformance",
+        "every *_type_concept_id must be a standard concept",
+        """
+        SELECT count(*) FROM (
+          SELECT condition_type_concept_id AS cid FROM condition_occurrence
+          UNION ALL SELECT measurement_type_concept_id FROM measurement
+          UNION ALL SELECT observation_type_concept_id FROM observation
+          UNION ALL SELECT drug_type_concept_id FROM drug_exposure
+          UNION ALL SELECT visit_type_concept_id FROM visit_occurrence
+          UNION ALL SELECT period_type_concept_id FROM observation_period
+        ) t JOIN concept c ON c.concept_id = t.cid
+        WHERE c.standard_concept IS DISTINCT FROM 'S'
+        """,
+    ),
+    Check(
+        "birth_datetime_matches_birth_date_parts",
+        "conformance",
+        "birth_datetime, when present, must agree with year/month/day_of_birth",
+        "SELECT count(*) FROM person WHERE birth_datetime IS NOT NULL AND ("
+        "  year(birth_datetime) <> year_of_birth"
+        "  OR month(birth_datetime) IS DISTINCT FROM month_of_birth"
+        "  OR day(birth_datetime) IS DISTINCT FROM day_of_birth)",
+    ),
+    Check(
         "every_person_has_provenance",
         "completeness",
         "every person row traces back to a source resource",

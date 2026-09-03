@@ -28,8 +28,8 @@ DOMAIN_TO_TABLE = {
     "Drug": "drug_exposure",
 }
 
-# 38000280 = "Observation recorded from EHR"
-OBSERVATION_TYPE_EHR = 38000280
+# 32817 = "EHR". Verified standard; 38000280 is not.
+OBSERVATION_TYPE_EHR = 32817
 
 # CDM 5.4 requires condition_type_concept_id to record HOW the row was
 # obtained -- claim, EHR problem list, registry. It is provenance, not

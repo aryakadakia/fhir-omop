@@ -21,10 +21,13 @@ explicitly.
 
 from __future__ import annotations
 
-# 44814724 = "Period covering healthcare encounters"
-# The honest type concept for a period inferred from event dates rather than
-# read from an enrolment record.
-PERIOD_TYPE_INFERRED = 44814724
+# 32882 = "Standard algorithm from EHR". Verified standard in the vocabulary.
+#
+# Semantically exact: this period IS derived by an algorithm from EHR event
+# dates rather than read from an enrolment record. Previously 44814724
+# "Period covering healthcare encounters", which describes the same idea but
+# is NON-STANDARD and therefore invisible to any analysis filtering on it.
+PERIOD_TYPE_INFERRED = 32882
 
 # Every table contributing an event date to the observable span.
 EVENT_SOURCES = [

@@ -61,7 +61,9 @@ results <- DataQualityDashboard::executeDqChecks(
   # a dqdashboard_results table inside the database we are auditing.
   writeToTable            = FALSE,
   writeToCsv              = TRUE,
-  csvFile                 = file.path(output_folder, "dqd-results.csv"),
+  # csvFile is resolved RELATIVE to outputFolder -- passing a full path
+  # produces results/dqd/results/dqd/... and the write silently fails.
+  csvFile                 = "dqd-results.csv",
   verboseMode             = FALSE
 )
 

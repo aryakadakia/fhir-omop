@@ -151,3 +151,32 @@ class TestGenderVocabularyPresence:
         m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
                          "birthDate": "1980"}, 1)
         assert m.gender_concept_id == GENDER_MALE
+
+
+class TestBirthDatetime:
+    """Leaving birth_datetime null when the source gave a full date is a real
+    loss: OHDSI tooling coalesces it to June 1st of the birth year, producing
+    false 'event before birth' findings. Found by the Data Quality Dashboard."""
+
+    def test_full_date_populates_birth_datetime(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1985-03-14"}, 1)
+        assert m.birth_datetime == "1985-03-14 00:00:00"
+
+    def test_year_month_precision_leaves_it_null(self):
+        # A guessed birth datetime is worse than an absent one.
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1985-03"}, 1)
+        assert m.birth_datetime is None
+        assert any("birth_datetime left null" in i for i in m.issues)
+
+    def test_year_precision_leaves_it_null(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1985"}, 1)
+        assert m.birth_datetime is None
+
+    def test_birth_datetime_agrees_with_the_parts(self):
+        m = map_patient({"resourceType": "Patient", "id": "p", "gender": "male",
+                         "birthDate": "1985-03-14"}, 1)
+        assert m.birth_datetime.startswith(
+            f"{m.year_of_birth:04d}-{m.month_of_birth:02d}-{m.day_of_birth:02d}")

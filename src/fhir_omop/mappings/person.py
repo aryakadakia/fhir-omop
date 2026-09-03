@@ -139,13 +139,26 @@ def map_patient(patient: dict, person_id: int, con=None) -> MappedPerson | None:
     if ethnicity_text is None:
         issues.append("no US Core ethnicity extension; ethnicity_concept_id set to 0")
 
+    # Populated only at full year-month-day precision. Leaving it null when we
+    # have the date is a real loss: OHDSI tooling that needs a birth datetime
+    # coalesces it to June 1st of the birth year, which produces false
+    # "event before birth" findings for anyone born in the second half of a
+    # year. At partial precision it stays null, because a guessed birth
+    # datetime is worse than an absent one.
+    birth_datetime = (
+        f"{year:04d}-{month:02d}-{day:02d} 00:00:00"
+        if month is not None and day is not None else None
+    )
+    if birth_datetime is None and month is not None:
+        issues.append("birthDate lacks a day; birth_datetime left null")
+
     return MappedPerson(
         person_id=person_id,
         gender_concept_id=gender_concept_id,
         year_of_birth=year,
         month_of_birth=month,
         day_of_birth=day,
-        birth_datetime=None,
+        birth_datetime=birth_datetime,
         # Mapping the US Core race/ethnicity text to OMOP Race/Ethnicity
         # concepts requires the full vocabulary, which the Synthea subset does
         # not carry. Left as 0 and the source text preserved, so a later pass

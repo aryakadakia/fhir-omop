@@ -177,6 +177,83 @@ database that does not exist.
 
 ---
 
+## Found by the Data Quality Dashboard
+
+The standardised OHDSI check suite, run once the CDM schema was complete.
+2,533 checks against our 33. It found four defects the hand-written suite
+missed, and the pattern in them is instructive: **all four sit in categories
+the hand-written checks did not think to cover at all**, rather than being
+cases the existing checks got wrong.
+
+### 12. Three non-standard type concepts
+
+```
+38000177  Prescription written                    standard = NULL
+38000280  Observation recorded from EHR           standard = NULL
+44814724  Period covering healthcare encounters   standard = NULL
+```
+
+Every `*_concept_id` in the CDM was checked for standardness by
+`all_event_concepts_are_standard`. No `*_type_concept_id` was. A non-standard
+type concept is invisible to any analysis filtering on it, in exactly the way a
+non-standard condition concept is invisible to a cohort definition — the
+failure this project documented at length and then committed itself.
+
+Worth noting which one was correct: `32817 EHR`, the only type concept that had
+been verified against the vocabulary before use. The three taken from memory
+were all wrong.
+
+*Fix:* `32838 EHR prescription`, `32817 EHR`, and `32882 Standard algorithm
+from EHR` — the last semantically better than what it replaced, since an
+inferred observation period genuinely is algorithm-derived.
+
+*Guarded by:* `all_type_concepts_are_standard`, across all six type fields.
+
+### 13. `birth_datetime` left null despite a full source date
+
+`Patient.birthDate` gives year, month and day; the mapping stored the parts and
+set `birth_datetime` to null. OHDSI tooling that needs a birth datetime
+coalesces a null to **June 1st of the birth year**:
+
+```sql
+COALESCE(CAST(BIRTH_DATETIME AS DATE),
+         CAST(strptime(CONCAT(year_of_birth,'0601'),'%Y%m%d') AS DATE))
+```
+
+That manufactures false "event before birth" findings for anyone born in the
+second half of a year — 48 of them here. Not wrong data; discarded data that
+forces every downstream consumer to guess.
+
+*Fix:* populated at full year-month-day precision, still null at partial
+precision, because a guessed birth datetime is worse than an absent one.
+
+*Guarded by:* `birth_datetime_matches_birth_date_parts` plus
+`TestBirthDatetime`.
+
+### 14. A path bug in the DQD runner itself
+
+`csvFile` is resolved relative to `outputFolder`, so passing a full path
+produced `results/dqd/results/dqd/...` and the CSV write failed — with a
+warning, not an error.
+
+---
+
+## What the Data Quality Dashboard flagged that was NOT a defect
+
+Recorded because reading a check suite's output critically is the skill, not
+obeying it.
+
+- **Six `plausibleValueLow` date failures.** DQD's default threshold is
+  `1950-01-01`. Synthea generates full lifetimes, so patients born in the
+  1910s–40s legitimately have conditions before then. A threshold mismatch, not
+  bad data.
+- **`measurePersonCompleteness` on `procedure_occurrence`.** Vacuous: the table
+  is deliberately empty because this ETL does not map `Procedure` yet.
+- **`standardConceptRecordCompleteness` on `unit_concept_id`.** 100% of
+  observations have no unit because qualitative observations do not have units.
+
+---
+
 ## Repository hygiene
 
 Not pipeline defects, but real and worth recording.

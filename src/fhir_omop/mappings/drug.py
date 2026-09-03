@@ -18,8 +18,14 @@ from fhir_omop.vocab import (
     resolve_to_standard,
 )
 
-# 38000177 = "Prescription written" -- the honest type concept for an order.
-DRUG_TYPE_PRESCRIPTION_WRITTEN = 38000177
+# 32838 = "EHR prescription". Verified standard in the vocabulary before use.
+#
+# This previously used 38000177 "Prescription written", which reads better but
+# is NON-STANDARD -- caught by the Data Quality Dashboard, not by our own
+# checks, which only verified event concepts and not type concepts. A
+# non-standard type concept is invisible to any analysis that filters on it,
+# in exactly the way a non-standard condition concept is.
+DRUG_TYPE_PRESCRIPTION_WRITTEN = 32838
 
 # Statuses that did not result in a prescription being issued.
 EXCLUDED_STATUSES = {"entered-in-error", "draft", "cancelled"}
