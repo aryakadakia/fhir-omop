@@ -15,6 +15,10 @@ Usage:
     python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip
     python scripts/load_athena_vocab.py --dir ~/Downloads/athena_csv/
 
+    # top up an existing vocabulary with vocabularies missed the first time,
+    # without re-downloading gigabytes:
+    python scripts/load_athena_vocab.py --zip ~/Downloads/gender_bundle.zip --merge
+
 Then point the ETL at the result:
     python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb
 """
@@ -104,9 +108,43 @@ def load_csv(con, csv_path: Path, table: str, columns: dict[str, str]) -> int:
     return con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
 
-def load_directory(csv_dir: Path, out_db: Path) -> None:
+# Rows are matched on these keys when merging, so a top-up bundle can be
+# folded into an existing vocabulary without duplicating what is already there.
+MERGE_KEYS = {
+    "concept": ["concept_id"],
+    "concept_relationship": ["concept_id_1", "concept_id_2", "relationship_id"],
+    "concept_ancestor": ["ancestor_concept_id", "descendant_concept_id"],
+    "vocabulary": ["vocabulary_id"],
+    "domain": ["domain_id"],
+    "concept_class": ["concept_class_id"],
+    "relationship": ["relationship_id"],
+    "concept_synonym": ["concept_id", "concept_synonym_name"],
+}
+
+
+def merge_table(con, staging: str, target: str) -> int:
+    """Insert rows from `staging` that are not already in `target`.
+
+    Anti-joined on the table's key rather than replacing wholesale, so an
+    existing vocabulary is never partially overwritten by a smaller bundle.
+    """
+    keys = MERGE_KEYS[target.split(".")[-1]]
+    condition = " AND ".join(f"t.{k} = s.{k}" for k in keys)
+    before = con.execute(f"SELECT count(*) FROM {target}").fetchone()[0]
+    con.execute(f"""
+        INSERT INTO {target}
+        SELECT s.* FROM {staging} s
+        WHERE NOT EXISTS (SELECT 1 FROM {target} t WHERE {condition})
+    """)
+    after = con.execute(f"SELECT count(*) FROM {target}").fetchone()[0]
+    return after - before
+
+
+def load_directory(csv_dir: Path, out_db: Path, merge: bool = False) -> None:
     out_db.parent.mkdir(parents=True, exist_ok=True)
-    if out_db.exists():
+    if merge and not out_db.exists():
+        sys.exit(f"--merge given but {out_db} does not exist; run without it first")
+    if not merge and out_db.exists():
         out_db.unlink()
     con = duckdb.connect(str(out_db))
 
@@ -124,16 +162,25 @@ def load_directory(csv_dir: Path, out_db: Path) -> None:
             print(f"  skip   {table.lower()} (not in bundle)")
             continue
         size_mb = found[table].stat().st_size / 1024 / 1024
-        print(f"  load   {table.lower():<22} ({size_mb:,.0f} MB) ...", end="", flush=True)
-        rows = load_csv(con, found[table], f"base.{table.lower()}", SCHEMAS[table])
-        print(f"\r  loaded {table.lower():<22} {rows:>14,} rows          ")
+        name = table.lower()
+        print(f"  {'merge ' if merge else 'load  '} {name:<22} ({size_mb:,.0f} MB) ...",
+              end="", flush=True)
+        if merge:
+            load_csv(con, found[table], f"base._staging_{name}", SCHEMAS[table])
+            added = merge_table(con, f"base._staging_{name}", f"base.{name}")
+            con.execute(f"DROP TABLE base._staging_{name}")
+            print(f"\r  merged {name:<22} {added:>14,} new rows      ")
+        else:
+            rows = load_csv(con, found[table], f"base.{name}", SCHEMAS[table])
+            print(f"\r  loaded {name:<22} {rows:>14,} rows          ")
 
-    print("\nindexing (this is what makes the ETL fast) ...")
-    con.execute("CREATE INDEX idx_concept_code ON base.concept(concept_code, vocabulary_id)")
-    con.execute("CREATE INDEX idx_concept_id ON base.concept(concept_id)")
-    con.execute("CREATE INDEX idx_cr_1 ON base.concept_relationship(concept_id_1, relationship_id)")
-    if "CONCEPT_ANCESTOR" in found:
-        con.execute("CREATE INDEX idx_ca_anc ON base.concept_ancestor(ancestor_concept_id)")
+    if not merge:
+        print("\nindexing (this is what makes the ETL fast) ...")
+        con.execute("CREATE INDEX idx_concept_code ON base.concept(concept_code, vocabulary_id)")
+        con.execute("CREATE INDEX idx_concept_id ON base.concept(concept_id)")
+        con.execute("CREATE INDEX idx_cr_1 ON base.concept_relationship(concept_id_1, relationship_id)")
+        if "CONCEPT_ANCESTOR" in found:
+            con.execute("CREATE INDEX idx_ca_anc ON base.concept_ancestor(ancestor_concept_id)")
 
     # Guard against the failure this loader exists to prevent. If concept_code
     # did not land as text, every lookup in the ETL would return nothing while
@@ -169,10 +216,14 @@ def main() -> int:
     source.add_argument("--dir", type=Path, help="already-extracted Athena CSV directory")
     parser.add_argument("--out", type=Path,
                         default=Path(__file__).resolve().parent.parent / "data/omop/vocab.duckdb")
+    parser.add_argument("--merge", action="store_true",
+                        help="fold this bundle into an existing vocabulary instead of "
+                             "rebuilding it -- for topping up with vocabularies missed "
+                             "in an earlier download")
     args = parser.parse_args()
 
     if args.dir:
-        load_directory(args.dir, args.out)
+        load_directory(args.dir, args.out, args.merge)
     else:
         # Extracted to a temp dir rather than into the repo: the CSVs are far
         # larger than the DuckDB file they become, and are not worth keeping.
@@ -180,7 +231,7 @@ def main() -> int:
             print(f"extracting {args.zip} ...")
             with zipfile.ZipFile(args.zip) as z:
                 z.extractall(tmp)
-            load_directory(Path(tmp), args.out)
+            load_directory(Path(tmp), args.out, args.merge)
     return 0
 
 
