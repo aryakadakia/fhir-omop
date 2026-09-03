@@ -15,3 +15,6 @@ data/fhir/bulk/
 
 # Downloaded source data — fetch it, don't commit it (see README)
 *.zip
+
+# DQD output — regenerate with scripts/run_dqd.R
+results/
