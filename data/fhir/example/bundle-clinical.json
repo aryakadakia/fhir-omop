@@ -1,0 +1,112 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "_comment": "One patient with a full clinical trail, so the quick start exercises the whole pipeline rather than only the person mapping. Deliberately includes a visit, a diagnosis, a lab result, a prescription and a vaccine, plus the practitioner and organization they reference.",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:pat-100",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-100",
+        "gender": "female",
+        "birthDate": "1972-04-18",
+        "name": [{ "family": "Alvarez", "given": ["Rosa"] }],
+        "address": [{ "line": ["12 Bourke Street"], "city": "Melbourne",
+                      "state": "VIC", "postalCode": "3000", "country": "AU" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:org-100",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "org-100",
+        "name": "ROYAL MELBOURNE HOSPITAL",
+        "type": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+                                "code": "prov" }] }],
+        "address": [{ "line": ["300 Grattan Street"], "city": "Parkville",
+                      "state": "VIC", "postalCode": "3050", "country": "AU" }]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:prac-100",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "prac-100",
+        "name": [{ "family": "Okonkwo", "given": ["Amara"], "prefix": ["Dr."] }],
+        "gender": "female"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:enc-100",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-100",
+        "status": "finished",
+        "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                   "code": "AMB" },
+        "subject": { "reference": "urn:uuid:pat-100" },
+        "participant": [{ "individual": { "reference": "urn:uuid:prac-100" } }],
+        "serviceProvider": { "reference": "urn:uuid:org-100" },
+        "period": { "start": "2015-03-02T09:00:00+11:00",
+                    "end": "2015-03-02T09:30:00+11:00" }
+      }
+    },
+    {
+      "_comment": "Essential hypertension. Resolves to concept 320128 when a vocabulary is loaded.",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-100",
+        "clinicalStatus": { "coding": [{ "code": "active" }] },
+        "verificationStatus": { "coding": [{ "code": "confirmed" }] },
+        "code": { "coding": [{ "system": "http://snomed.info/sct",
+                               "code": "59621000", "display": "Essential hypertension" }] },
+        "subject": { "reference": "urn:uuid:pat-100" },
+        "encounter": { "reference": "urn:uuid:enc-100" },
+        "onsetDateTime": "2015-03-02T09:10:00+11:00"
+      }
+    },
+    {
+      "_comment": "A lab result -- LOINC 4548-4 is HbA1c. Routes to `measurement` by domain.",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-100",
+        "status": "final",
+        "category": [{ "coding": [{ "code": "laboratory" }] }],
+        "code": { "coding": [{ "system": "http://loinc.org",
+                               "code": "4548-4", "display": "Hemoglobin A1c" }] },
+        "subject": { "reference": "urn:uuid:pat-100" },
+        "encounter": { "reference": "urn:uuid:enc-100" },
+        "effectiveDateTime": "2015-03-02T09:20:00+11:00",
+        "valueQuantity": { "value": 6.1, "unit": "%",
+                           "system": "http://unitsofmeasure.org", "code": "%" }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "mr-100",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "coding": [{ "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                       "code": "310798", "display": "Hydrochlorothiazide 25 MG Oral Tablet" }] },
+        "subject": { "reference": "urn:uuid:pat-100" },
+        "encounter": { "reference": "urn:uuid:enc-100" },
+        "authoredOn": "2015-03-02T09:25:00+11:00"
+      }
+    },
+    {
+      "_comment": "CVX 140 -- influenza. Vaccines are drugs in OMOP.",
+      "resource": {
+        "resourceType": "Immunization",
+        "id": "imm-100",
+        "status": "completed",
+        "vaccineCode": { "coding": [{ "system": "http://hl7.org/fhir/sid/cvx",
+                                      "code": "140", "display": "Influenza, seasonal" }] },
+        "patient": { "reference": "urn:uuid:pat-100" },
+        "encounter": { "reference": "urn:uuid:enc-100" },
+        "occurrenceDateTime": "2018-05-14T10:00:00+10:00"
+      }
+    }
+  ]
+}

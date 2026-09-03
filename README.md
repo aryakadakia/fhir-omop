@@ -9,33 +9,36 @@ decisions — the places where a FHIR resource carries information the CDM has n
 column for, or the CDM demands a value the source does not supply. Those
 decisions are documented at the point they are made.
 
-## Status
+## What it does
 
-Implemented: `Patient` → `person`, `Encounter` → `visit_occurrence`,
-`Condition` and `Observation` → domain-routed across `condition_occurrence` /
-`measurement` / `observation`, `MedicationRequest` and `Immunization` →
-`drug_exposure`, and derived `observation_period`. Two-step standard-concept
-resolution, provenance on every row, and a 26-check data-quality suite.
+Twelve FHIR resource types are mapped, domain-routed against the full OHDSI
+Athena vocabulary, with `observation_period`, `drug_era` and `condition_era`
+derived afterwards. Every CDM row is traceable to the FHIR resource that
+produced it.
 
-Run against the Synthea FHIR R4 sample (1,180 patients), with the full
-OHDSI Athena vocabulary (4.25M concepts):
+Run against the Synthea FHIR R4 sample — 1,180 synthetic patients, 414,000
+resources, no real patient data:
 
 ```
-person                  1,180
-observation_period      1,180
-visit_occurrence       46,868
-condition_occurrence    8,583
-measurement           246,339
-observation            13,773
-drug_exposure          29,115
-26/26 data-quality checks pass
+person                  1,180      provider              1,036
+observation_period      1,180      care_site             1,035
+visit_occurrence       46,868      location                970
+condition_occurrence    8,583      device_exposure          58
+measurement           253,867
+observation            14,862      drug_era             11,205
+procedure_occurrence   28,401      condition_era         8,450
+drug_exposure          30,041      cohort                  406
 ```
 
-Unmapped rates: conditions 1.3%, measurements 0.0%, observations 1.1%,
-drugs 0.1%, visits 0.0%, gender 0.0%.
+```
+206 tests · 36 built-in quality checks · 2,530 of 2,533 OHDSI DQD checks
+unmapped: conditions 1.3% · measurements 0.0% · drugs 0.1% · visits 0.0%
+```
 
-Not yet implemented: era tables (`drug_era`, `condition_era`), `Procedure` →
-`procedure_occurrence`, `DocumentReference` → `note`.
+Not mapped, deliberately: `Claim` and `ExplanationOfBenefit` (billing —
+health economics, a project of its own), `DiagnosticReport` (a grouping
+resource whose member observations are already mapped), and `CarePlan`,
+`CareTeam`, `Goal`, `ImagingStudy` (no home in CDM 5.4 core).
 
 ## What went wrong, and how it was found
 
@@ -78,7 +81,7 @@ It is also published as a hosted page:
 
 ```bash
 uv venv && uv pip install -e ".[dev]"
-python scripts/run_etl.py --fhir data/fhir/fixtures
+python scripts/run_etl.py --fhir data/fhir/example
 pytest
 ```
 
@@ -216,6 +219,17 @@ standardised to the CDM.
 edge cases above — they are committed so the test suite runs with no download.
 Bulk FHIR input under `data/fhir/` is gitignored.
 
+## Scope
+
+This is a learning project, and worth being clear about what that means. It runs
+on one machine against one synthetic dataset, has no incremental loading, and
+has never met a real EHR's quirks. It is not a production ETL.
+
+What it does have is a complete audit trail: every mapping decision documented
+where it is made, every defect found recorded in `docs/bugs-found.md` along with
+how it surfaced, and both a hand-written and the community-standard check suite
+run over the output.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
