@@ -338,13 +338,49 @@ Organizations that data references. The Encounters carry
 `Practitioner/79a13b7d-...` and `Organization/b0e04623-...`; neither resource is
 in the bundle.
 
-### What 18 and 19 actually mean
+### What 18 and 19 actually mean, and what was done about them
 
-Neither is an ETL defect. Both say the same thing: **the ETL is complete and the
-fetcher does not exist.** Reading FHIR from disk and reading it from a server
-are different problems, and only the first one is solved here. A fetch layer
-would need to follow `next` links to exhaustion and separately retrieve the
-resources that clinical data references.
+Neither is an ETL defect. Both say the same thing: the ETL was complete and the
+fetcher did not exist. Reading FHIR from disk and reading it from a server are
+different problems, and only the first was solved.
+
+`scripts/fetch_fhir.py` closes both. Same patient, before and after:
+
+```
+                  $everything   fetcher   server reports
+Encounter                  35        78               78
+Observation               104       207              207
+Procedure                  38        70               70
+MedicationRequest          47       102              102
+provider rows               0         1
+care_site rows              0         1
+visits with a provider      0        77 of 78
+```
+
+Three things make the difference.
+
+**It verifies rather than assumes.** A type search returns `total`, so the
+fetcher compares what it received against what the server says exists and
+reports a warning per resource type when they differ. The whole failure being
+guarded against is a partial pull that looks complete, so completeness is
+asserted rather than hoped for.
+
+**It does not use `$everything`.** That operation's paging is unreliable: this
+sandbox returns 503 on its own `next` links while ordinary type-search paging
+works on the same server. Per-type search also yields `total`, which
+`$everything` does not.
+
+**It fetches what the data references.** A second pass retrieves the
+Practitioners and Organizations the clinical resources point at but the search
+results omit.
+
+### 20. The fetcher's first version lost everything on a transient failure
+
+Written to raise on any HTTP error, it discarded 200 already-fetched resources
+when page two returned 503. Now it retries with backoff, and on persistent
+failure keeps what it has and reports the pull as incomplete. Both halves
+matter: discarding good data is wasteful, and keeping it silently would
+recreate exactly the problem in finding 18.
 
 ---
 

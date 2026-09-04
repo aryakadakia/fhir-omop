@@ -26,3 +26,6 @@ results/
 
 # Live FHIR server pulls (regenerate with scripts/, not committed)
 data/fhir/live/
+
+# Live FHIR pulls (regenerate with scripts/fetch_fhir.py)
+data/fhir/live/
