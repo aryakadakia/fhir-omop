@@ -112,6 +112,9 @@ a hand-written and the community-standard check suite run over the output.
 - [`docs/bugs-found.md`](docs/bugs-found.md) — every defect, and how it surfaced
 - [`docs/manual.html`](docs/manual.html) — operating the pipeline
 - [`docs/course.html`](docs/course.html) — the underlying standards
+- [`docs/upstream-issue-duckdb-icu-not-loaded.md`](docs/upstream-issue-duckdb-icu-not-loaded.md)
+  — a DatabaseConnector defect found while running the quality checks, reported
+  upstream
 
 ## License
 

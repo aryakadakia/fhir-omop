@@ -1,0 +1,33 @@
+DBMS:
+duckdb
+
+Error:
+Binder Error: No function matches the given name and argument types '(DATE, INTERVAL)'. You might need to add explicit type casts.
+	Candidate functions:
+
+
+LINE 1: SELECT CAST((CURRENT_DATE + TO_DAYS(CAST(1 AS INTEGER))) AS DATE) AS x
+                                  ^
+ℹ Context: rapi_prepare
+ℹ Error type: BINDER
+
+SQL:
+SELECT CAST((CURRENT_DATE + TO_DAYS(CAST(1 AS INTEGER))) AS DATE) AS x
+
+R version:
+R version 4.6.0 (2026-04-24)
+
+Platform:
+aarch64-apple-darwin23
+
+Attached base packages:
+- stats
+- graphics
+- grDevices
+- utils
+- datasets
+- methods
+- base
+
+Other attached packages:
+- DatabaseConnector (7.2.0)
