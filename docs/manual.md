@@ -67,7 +67,7 @@ one idea, many codes
 
 If you store whatever code arrived, you cannot count patients across hospitals. OMOP solves this by giving the *idea itself* its own number, independent of any coding system. Essential hypertension is **`320128`**. Every one of those source codes points at it.
 
-That number is called a **concept\_id**, and it is the single most important thing in OMOP. Every clinical fact in the database is stored as one.
+That number is called a **concept_id**, and it is the single most important thing in OMOP. Every clinical fact in the database is stored as one.
 
 ### The vocabulary file
 
@@ -76,9 +76,9 @@ The translation table is enormous and is maintained by the OHDSI community, not 
 | Table                 | What it holds                                     | Rows       |
 |-----------------------|---------------------------------------------------|------------|
 | concept               | The dictionary. Every medical idea, one row each. | 4,254,142  |
-| concept\_relationship | Edges between concepts, including `Maps to`       | 35,221,992 |
-| concept\_ancestor     | The hierarchy, precomputed at every depth         | 38,996,579 |
-| concept\_synonym      | Alternative names for searching                   | 2,449,429  |
+| concept_relationship | Edges between concepts, including `Maps to`       | 35,221,992 |
+| concept_ancestor     | The hierarchy, precomputed at every depth         | 38,996,579 |
+| concept_synonym      | Alternative names for searching                   | 2,449,429  |
 
 Downloading that is downloading years of other people's terminology work. It is the reason OMOP is worth the trouble.
 
@@ -90,7 +90,7 @@ Downloading that is downloading years of other people's terminology work. It is 
 
 Example: SNOMED retired `Prediabetes` in 2002. It still arrives in data. `Maps to` redirects it to `Impaired glucose tolerance`, which is current.
 
-**concept\_ancestor — subsumption**
+**concept_ancestor — subsumption**
 
 "This is a *kind of* that." Pre-eclampsia is not the same as hypertensive disorder — it is a specific form of it. Runs at **analysis time**, letting you ask for a whole family of concepts at once.
 
@@ -110,15 +110,15 @@ This happened twice during construction. Both times it was caught by a check, no
 
 Every file, and what it is for.
 
-**5,504** — lines of Python
+**6,070** — lines of Python
 
 **347** — lines of R
 
 **206** — tests
 
-**22** — commits
+**35** — commits
 
-Core engine — src/fhir\_omop/
+Core engine — src/fhir_omop/
 
 **etl.py** — The orchestrator. Reads bundles, runs nine passes in order, writes rows in batches. 481 lines, and the only file that knows about the pipeline as a whole.
 
@@ -128,7 +128,7 @@ Core engine — src/fhir\_omop/
 
 **ddl.py** — Table definitions for everything the pipeline populates, following the CDM 5.4 specification.
 
-**cdm\_remainder.py** — Definitions for the 21 CDM tables it does *not* populate, created empty. OHDSI tooling treats a missing table as an error but an empty one as a legitimate finding.
+**cdm_remainder.py** — Definitions for the 21 CDM tables it does *not* populate, created empty. OHDSI tooling treats a missing table as an error but an empty one as a legitimate finding.
 
 **dq.py** — 36 data-quality checks in three categories. Each returns a count of violations, so zero always means pass.
 
@@ -136,41 +136,41 @@ Mappings — one module per FHIR resource type
 
 **mappings/person.py** — Patient → person. Demographics, birth-date precision, the race/ethnicity decision.
 
-**mappings/visit.py** — Encounter → visit\_occurrence. Visit types, missing end dates.
+**mappings/visit.py** — Encounter → visit_occurrence. Visit types, missing end dates.
 
-**mappings/condition.py** — Condition → condition\_occurrence or observation, decided by domain.
+**mappings/condition.py** — Condition → condition_occurrence or observation, decided by domain.
 
 **mappings/measurement.py** — Observation → measurement or observation. Produces the largest table.
 
-**mappings/procedure.py** — Procedure → procedure\_occurrence, measurement or observation.
+**mappings/procedure.py** — Procedure → procedure_occurrence, measurement or observation.
 
-**mappings/drug.py** — MedicationRequest → drug\_exposure. Prescriptions.
+**mappings/drug.py** — MedicationRequest → drug_exposure. Prescriptions.
 
-**mappings/immunization.py** — Immunization → drug\_exposure. Vaccines are drugs in OMOP.
+**mappings/immunization.py** — Immunization → drug_exposure. Vaccines are drugs in OMOP.
 
-**mappings/misc\_clinical.py** — MedicationAdministration, AllergyIntolerance and Device. Grouped because they share a shape.
+**mappings/misc_clinical.py** — MedicationAdministration, AllergyIntolerance and Device. Grouped because they share a shape.
 
-**mappings/organisation.py** — Practitioner → provider, Organization → care\_site, addresses → location. The only non-patient-scoped resources.
+**mappings/organisation.py** — Practitioner → provider, Organization → care_site, addresses → location. The only non-patient-scoped resources.
 
-**mappings/observation\_period.py** — Derives the observable window per person. Has no FHIR counterpart.
+**mappings/observation_period.py** — Derives the observable window per person. Has no FHIR counterpart.
 
-**mappings/eras.py** — Derives drug\_era and condition\_era. Also has no FHIR counterpart.
+**mappings/eras.py** — Derives drug_era and condition_era. Also has no FHIR counterpart.
 
 Scripts — the things you actually run
 
-**scripts/run\_etl.py** — Runs the conversion and prints a report.
+**scripts/run_etl.py** — Runs the conversion and prints a report.
 
-**scripts/load\_athena\_vocab.py** — Loads an Athena vocabulary download. `--merge` tops up an existing one without rebuilding it.
+**scripts/load_athena_vocab.py** — Loads an Athena vocabulary download. `--merge` tops up an existing one without rebuilding it.
 
-**scripts/fetch\_fhir.py** — Pulls patients from a live FHIR server. Pages to exhaustion, verifies each count against the server's reported total, and fetches the practitioners and organisations that clinical data references but search results omit.
+**scripts/fetch_fhir.py** — Pulls patients from a live FHIR server. Pages to exhaustion, verifies each count against the server's reported total, and fetches the practitioners and organisations that clinical data references but search results omit.
 
-**scripts/bulk\_export.py** — Exports a whole population via FHIR Bulk Data — the asynchronous kickoff, poll and download protocol. Negotiates resource types against the server's CapabilityStatement first.
+**scripts/bulk_export.py** — Exports a whole population via FHIR Bulk Data — the asynchronous kickoff, poll and download protocol. Negotiates resource types against the server's CapabilityStatement first.
 
-**scripts/run\_dqd.R** — Runs the OHDSI Data Quality Dashboard — 2,533 standardised checks.
+**scripts/run_dqd.R** — Runs the OHDSI Data Quality Dashboard — 2,533 standardised checks.
 
-**scripts/make\_thresholds.R** — Generates a threshold override file from DQD's defaults, with the reason recorded.
+**scripts/make_thresholds.R** — Generates a threshold override file from DQD's defaults, with the reason recorded.
 
-**scripts/build\_cohorts.R** — Defines cohorts in R, compiles them to SQL, generates them against the CDM.
+**scripts/build_cohorts.R** — Defines cohorts in R, compiles them to SQL, generates them against the CDM.
 
 Documentation
 
@@ -234,10 +234,10 @@ A FHIR `Condition` does not always become a `condition_occurrence`. "Normal preg
 
 | Arrived as | Resources | Went to               | Rows   |
 |------------|-----------|-----------------------|--------|
-| Procedure  | 36,451    | procedure\_occurrence | 28,401 |
+| Procedure  | 36,451    | procedure_occurrence | 28,401 |
 |            |           | measurement           | 7,528  |
 |            |           | observation           | 522    |
-| Condition  | 8,766     | condition\_occurrence | 8,583  |
+| Condition  | 8,766     | condition_occurrence | 8,583  |
 |            |           | observation           | 183    |
 
 Getting this wrong produces no error. The rows insert, every key resolves, and prevalence queries return a wrong denominator forever.
@@ -251,36 +251,36 @@ Everything in `data/omop/omop.duckdb`, and what each table holds.
 | Table                 | Holds                                                         | Rows    |
 |-----------------------|---------------------------------------------------------------|---------|
 | person                | One row per patient. Demographics only — no clinical facts.   | 1,180   |
-| visit\_occurrence     | Every encounter. Most clinical facts hang off one.            | 46,868  |
-| condition\_occurrence | Diagnoses.                                                    | 8,583   |
+| visit_occurrence     | Every encounter. Most clinical facts hang off one.            | 46,868  |
+| condition_occurrence | Diagnoses.                                                    | 8,583   |
 | measurement           | Anything with a number and a unit — labs, vitals.             | 253,867 |
 | observation           | Qualitative facts: allergies, smoking status, survey answers. | 14,862  |
-| procedure\_occurrence | Things done to the patient.                                   | 28,401  |
-| drug\_exposure        | Prescriptions, administrations and vaccines together.         | 30,041  |
-| device\_exposure      | Implants and devices.                                         | 58      |
+| procedure_occurrence | Things done to the patient.                                   | 28,401  |
+| drug_exposure        | Prescriptions, administrations and vaccines together.         | 30,041  |
+| device_exposure      | Implants and devices.                                         | 58      |
 
 ### Who and where
 
 | Table      | Holds                                                           | Rows  |
 |------------|-----------------------------------------------------------------|-------|
 | provider   | Clinicians. Deduplicated from 2,980 source records.             | 1,036 |
-| care\_site | Hospitals and clinics.                                          | 1,035 |
+| care_site | Hospitals and clinics.                                          | 1,035 |
 | location   | Addresses, deduplicated by content since FHIR gives them no id. | 970   |
 
 ### Derived — computed, not read from anywhere
 
 | Table               | Holds                                               | Rows   |
 |---------------------|-----------------------------------------------------|--------|
-| observation\_period | When each person was observable. The denominator.   | 1,180  |
-| drug\_era           | Continuous treatment episodes, per drug ingredient. | 11,205 |
-| condition\_era      | Continuous disease episodes.                        | 8,450  |
+| observation_period | When each person was observable. The denominator.   | 1,180  |
+| drug_era           | Continuous treatment episodes, per drug ingredient. | 11,205 |
+| condition_era      | Continuous disease episodes.                        | 8,450  |
 | cohort              | Generated study populations.                        | 406    |
 
 ### Traceability
 
 | Table             | Holds                                                                                                                                    | Rows    |
 |-------------------|------------------------------------------------------------------------------------------------------------------------------------------|---------|
-| \_etl\_provenance | **Not part of the CDM — this one is ours.** One row per CDM row, naming the source file, resource type and resource id that produced it. | 385,931 |
+| _etl_provenance | **Not part of the CDM — this one is ours.** One row per CDM row, naming the source file, resource type and resource id that produced it. | 385,931 |
 
 That last table is the difference between a pipeline someone can audit and one they have to trust. Any row in the database can be traced back to the exact FHIR resource it came from.
 
@@ -300,7 +300,7 @@ The CDM defines about 40 tables. This pipeline fills 19 and creates the rest emp
 
 Three tables with no FHIR counterpart, and the reasoning behind each.
 
-### observation\_period — the denominator
+### observation_period — the denominator
 
 A rate is one number divided by another. For "what fraction of people have hypertension": the top is people with the diagnosis, the bottom is people who *could* have been diagnosed.
 
@@ -310,7 +310,7 @@ The top is easy to count. The bottom is a judgement, and it is what this table a
 
 The CDM lets you record which method you used, and this one says so honestly — `period_type_concept_id = 32882`, "Standard algorithm from EHR".
 
-### drug\_era — treatment episodes
+### drug_era — treatment episodes
 
 Twelve monthly prescriptions of the same drug are twelve rows in `drug_exposure`. Clinically they are *one twelve-month course of treatment*. Counting rows tells you about prescribing; counting eras tells you about **exposure** — and nearly every question worth asking is about exposure.
 
@@ -339,7 +339,7 @@ Synthea supplies no dispense duration, so every `drug_exposure` has an end date 
 
 With real dispensing data carrying `days_supply`, simvastatin would form multi-year eras. That one missing field is the difference between eras that describe treatment and eras that just re-describe prescriptions.
 
-### condition\_era
+### condition_era
 
 The same collapsing applied to diagnoses, with no rollup — there is no diagnosis equivalent of a drug ingredient, so it uses the concept directly.
 
@@ -405,7 +405,7 @@ UCUM and the CDM metadata vocabularies are mandatory and arrive regardless.
 **Skip CPT4.** It is the only vocabulary needing a UMLS licence and a separate
 `cpt4.jar` step, and nothing here uses it.
 
-\~40 seconds · produces data/omop/vocab.duckdb (3.2 GB)
+~40 seconds · produces data/omop/vocab.duckdb (3.2 GB)
 
     python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip
 
@@ -415,7 +415,7 @@ To add vocabularies you forgot, without rebuilding the whole thing:
 
 ### 3 · Run the conversion
 
-\~8 minutes · produces data/omop/omop.duckdb (2.6 GB)
+~8 minutes · produces data/omop/omop.duckdb (2.6 GB)
 
     python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb
 
@@ -456,7 +456,7 @@ under 2 seconds · needs no database
 
 ### 5 · Run the standardised quality checks
 
-\~30 seconds · produces results/dqd/
+~30 seconds · produces results/dqd/
 
     Rscript scripts/make_thresholds.R   # once, generates the override file
     Rscript scripts/run_dqd.R
@@ -587,9 +587,9 @@ Three are defined in `scripts/build_cohorts.R`:
 
 | Cohort               | Definition                                                      | People |
 |----------------------|-----------------------------------------------------------------|--------|
-| hypertension\_adults | Adults, first hypertensive disorder, 365 days prior observation | 173    |
-| t2dm\_any            | First type 2 diabetes diagnosis, 365 days prior observation     | 95     |
-| hctz\_new\_users     | First exposure to hydrochlorothiazide                           | 138    |
+| hypertension_adults | Adults, first hypertensive disorder, 365 days prior observation | 173    |
+| t2dm_any            | First type 2 diabetes diagnosis, 365 days prior observation     | 95     |
+| hctz_new_users     | First exposure to hydrochlorothiazide                           | 138    |
 
 ### Why R and not ATLAS
 
@@ -713,7 +713,7 @@ Synthea supplies no dispense duration, so `drug_exposure_end_date` equals its st
 
 CVX vaccine concepts are outside the RxNorm ingredient hierarchy, so 15,013 immunizations roll up to nothing. That is the standard OHDSI definition, not an omission — but it means `drug_era` covers a strict subset of `drug_exposure` and their counts will never reconcile.
 
-### observation\_period is inferred, not observed
+### observation_period is inferred, not observed
 
 Derived from first-to-last event. A floor, not a truth. Claims data supports a better derivation because enrolment spans are recorded explicitly.
 

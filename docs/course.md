@@ -16,7 +16,7 @@ Two standards govern clinical data. One moves it between systems; the other make
 6.  [05 · Relationships and hierarchy](#m3b)
 7.  [06 · Surrogate keys and the index](#m4)
 8.  [07 · The four rules of the bridge](#m5)
-9.  [08 · Rates: numerator, denominator, observation\_period](#m6)
+9.  [08 · Rates: numerator, denominator, observation_period](#m6)
 10. [09 · Using it: defining a cohort](#m7)
 11. [10 · What FHIR is for, beyond our ETL](#m8)
 12. [11 · What OMOP is for, beyond our ETL](#m9)
@@ -112,7 +112,7 @@ Body
 OHDSI
 
 Shape  
-\~40 relational tables
+~40 relational tables
 
 Unit of work  
 A whole population
@@ -206,7 +206,7 @@ Condition.code
 
 ## The FHIR resources worth knowing
 
-There are \~150. You need perhaps twenty.
+There are ~150. You need perhaps twenty.
 
 Resources are grouped by what they describe. These are the ones that carry real weight in practice.
 
@@ -215,13 +215,13 @@ Resources are grouped by what they describe. These are the ones that carry real 
 | Resource           | What it holds                                                     | OMOP target               |
 |--------------------|-------------------------------------------------------------------|---------------------------|
 | Patient            | Demographics. Exactly one per person.                             | person                    |
-| Condition          | Diagnoses, problems, health concerns.                             | condition\_occurrence     |
+| Condition          | Diagnoses, problems, health concerns.                             | condition_occurrence     |
 | Observation        | Labs, vitals, smoking status, survey answers. The biggest by far. | measurement / observation |
-| Encounter          | A visit or admission. The spine other facts hang from.            | visit\_occurrence         |
-| MedicationRequest  | A prescription order.                                             | drug\_exposure            |
-| Procedure          | Something done to the patient.                                    | procedure\_occurrence     |
+| Encounter          | A visit or admission. The spine other facts hang from.            | visit_occurrence         |
+| MedicationRequest  | A prescription order.                                             | drug_exposure            |
+| Procedure          | Something done to the patient.                                    | procedure_occurrence     |
 | AllergyIntolerance | Allergies and reactions.                                          | observation               |
-| Immunization       | Vaccines given.                                                   | drug\_exposure            |
+| Immunization       | Vaccines given.                                                   | drug_exposure            |
 
 ### The medication family — a common trap
 
@@ -273,7 +273,7 @@ Five codes. One idea. If your database stores whatever code each hospital sent, 
 
 ### The solution: an integer for the idea itself
 
-OMOP creates a separate identifier for the *idea*, independent of any coding system. That identifier is a **concept\_id**: an arbitrary integer, meaningful only within OMOP.
+OMOP creates a separate identifier for the *idea*, independent of any coding system. That identifier is a **concept_id**: an arbitrary integer, meaningful only within OMOP.
 
 Essential hypertension is **`320128`**. Every one of those five source codes points at it. Store `320128` and your query works everywhere.
 
@@ -283,26 +283,26 @@ A "clinical idea" here just means a distinct thing you might want to count: a di
 
 The `concept` table is one enormous dictionary. Here is an actual row from our database, field by field:
 
-**concept\_id** — **320128** — OMOP's own integer. This is what you store in your data.
+**concept_id** — **320128** — OMOP's own integer. This is what you store in your data.
 
-**concept\_name** — **Essential hypertension** — the human-readable label.
+**concept_name** — **Essential hypertension** — the human-readable label.
 
-**domain\_id** — **Condition** — which CDM table facts using this concept belong in.
+**domain_id** — **Condition** — which CDM table facts using this concept belong in.
 
-**vocabulary\_id** — **SNOMED** — which source dictionary this concept came from.
+**vocabulary_id** — **SNOMED** — which source dictionary this concept came from.
 
-**concept\_class\_id** — **Disorder** — the vocabulary's own internal category.
+**concept_class_id** — **Disorder** — the vocabulary's own internal category.
 
-**standard\_concept** — **S** — this is the canonical concept for the idea. See below.
+**standard_concept** — **S** — this is the canonical concept for the idea. See below.
 
-**concept\_code** — **59621000** — the code as it exists in SNOMED. This is the bridge back to the source.
+**concept_code** — **59621000** — the code as it exists in SNOMED. This is the bridge back to the source.
 
-**valid\_start\_date  
-valid\_end\_date** — **2002-01-31** to **2099-12-31** — when this concept is in force. A far-future end date means "still current".
+**valid_start_date  
+valid_end_date** — **2002-01-31** to **2099-12-31** — when this concept is in force. A far-future end date means "still current".
 
-**invalid\_reason** — **NULL** — still valid. Non-null means deprecated.
+**invalid_reason** — **NULL** — still valid. Non-null means deprecated.
 
-### How a code turns into a concept\_id
+### How a code turns into a concept_id
 
 It is a lookup, and there is nothing clever about it. You have a code and you know which dictionary it came from. You search the `concept` table for that pair:
 
@@ -317,13 +317,13 @@ step 1 — the lookup
 
 You need *both* halves. `concept_code` alone is ambiguous — different vocabularies reuse the same strings. The `vocabulary_id` comes from translating the FHIR `system` URI (`http://snomed.info/sct` → `SNOMED`), which is a small hard-coded table in our pipeline.
 
-### "Designating canonical" — what standard\_concept means
+### "Designating canonical" — what standard_concept means
 
 Because concepts are imported from many vocabularies, OMOP ends up holding several concepts that mean roughly the same thing — one from SNOMED, one from ICD-10, and so on. It would be chaos if analysts each picked a different one.
 
 So OMOP nominates **one concept per idea as the standard** — marked `standard_concept = 'S'`. Everything else is non-standard and exists only to be translated *from*.
 
-| standard\_concept | Means                                                       | May you store it?                             |
+| standard_concept | Means                                                       | May you store it?                             |
 |-------------------|-------------------------------------------------------------|-----------------------------------------------|
 | 'S'               | Standard. The canonical concept for this idea.              | Yes — this is what belongs in `*_concept_id`. |
 | 'C'               | Classification. A grouping concept, e.g. an ATC drug class. | Not in event tables; useful for rolling up.   |
@@ -345,7 +345,7 @@ Here all three agree, because the incoming code was already standard. When it is
 
 Concepts alone are just a dictionary. Two further tables connect them, and they do different jobs.
 
-### concept\_relationship: a table of edges
+### concept_relationship: a table of edges
 
 This is simply a list of triples — *this concept, that concept, and how they relate*. Nothing more:
 
@@ -357,7 +357,7 @@ a real row from our database
 
 Read it as a sentence: *concept 40316773 **Maps to** concept 4311629.* The `relationship_id` is just a label saying what kind of edge this is. Our vocabulary subset holds several kinds:
 
-| relationship\_id | Meaning                                                     | Rows  |
+| relationship_id | Meaning                                                     | Rows  |
 |------------------|-------------------------------------------------------------|-------|
 | Maps to          | "When you see 1, use 2 for analysis." The translation edge. | 2,524 |
 | Mapped from      | The same edge reversed. Every relationship has an inverse.  | 2,524 |
@@ -368,15 +368,15 @@ Read it as a sentence: *concept 40316773 **Maps to** concept 4311629.* The `rela
 
 Look at the concept row for 40316773 and the cause is visible:
 
-**concept\_id** — **40316773**
+**concept_id** — **40316773**
 
-**concept\_name** — **Prediabetes**
+**concept_name** — **Prediabetes**
 
-**standard\_concept** — **NULL** — not standard
+**standard_concept** — **NULL** — not standard
 
-**valid\_end\_date** — **2002-01-31** — this concept stopped being valid in 2002
+**valid_end_date** — **2002-01-31** — this concept stopped being valid in 2002
 
-**invalid\_reason** — **U** — "Upgraded". SNOMED retired this code and replaced it.
+**invalid_reason** — **U** — "Upgraded". SNOMED retired this code and replaced it.
 
 SNOMED deprecated this code decades ago. Synthea still emits it, as real systems routinely do — clinical software is full of codes that were current when the software was written. OMOP keeps the dead concept in the dictionary *precisely so that old data can still be translated*, and records where it went with a `Maps to` edge.
 
@@ -416,7 +416,7 @@ They arrive from two places:
 
 You need both, for different jobs. `Maps to` runs at ETL time, normalising what arrives. `concept_ancestor` runs at analysis time, letting you ask for a family of concepts at once.
 
-### concept\_ancestor: the hierarchy, precomputed
+### concept_ancestor: the hierarchy, precomputed
 
 SNOMED is not a flat list. It is a hierarchy of *is-a* relationships: essential hypertension *is a* hypertensive disorder, which *is a* cardiovascular finding, and so on up to "Disease". Here is the real chain from our database:
 
@@ -506,7 +506,7 @@ Whichever system created the resource
 Scope  
 Unique on that server
 
-#### OMOP person\_id
+#### OMOP person_id
 
 Looks like  
 `1`
@@ -583,7 +583,7 @@ Write person rows. Build `person_index`: FHIR id → `person_id`.
 
 pass 2
 
-#### Encounter → visit\_occurrence
+#### Encounter → visit_occurrence
 
 Needs `person_index` (an encounter belongs to a patient). Builds `visit_index`: FHIR id → `visit_occurrence_id`.
 
@@ -595,7 +595,7 @@ Each needs *both* indexes — a patient and, usually, the visit it happened at.
 
 pass 4
 
-#### Derive observation\_period
+#### Derive observation_period
 
 A function of every event date now loaded, so it must come last.
 
@@ -631,9 +631,9 @@ resolution, end to end
 
 The rule that surprises everyone. A FHIR `Condition` does not necessarily become a `condition_occurrence`. The `domain_id` on the resolved concept decides the destination table:
 
-| Arrived as  | Concept                     | domain\_id      | Actually goes to      | Rows    |
+| Arrived as  | Concept                     | domain_id      | Actually goes to      | Rows    |
 |-------------|-----------------------------|-----------------|-----------------------|---------|
-| Condition   | Essential hypertension      | Condition       | condition\_occurrence | 330     |
+| Condition   | Essential hypertension      | Condition       | condition_occurrence | 330     |
 | Condition   | Normal pregnancy            | **Observation** | observation           | 516     |
 | Condition   | Body mass index 30+ obesity | **Observation** | observation           | 346     |
 | Observation | Body Height (LOINC 8302-2)  | **Measurement** | measurement           | 208,513 |
@@ -691,7 +691,7 @@ Someone who appears in your data for a single day was never realistically going 
 
 Real EHR data is full of such people: one emergency visit, never seen again. This is not an edge case; in some datasets it is a large minority of rows.
 
-### What observation\_period is
+### What observation_period is
 
 One row per person, recording the window during which they were *observable* — during which, had something happened to them, your data would have recorded it.
 
@@ -975,10 +975,10 @@ Common Data Model. The OMOP schema. Current version 5.4.
 Concept  
 One distinct clinical idea — a disease, a test, a drug, a unit. The row in the `concept` table.
 
-concept\_id  
+concept_id  
 OMOP's integer identifier for a concept. Arbitrary, and meaningful only inside OMOP.
 
-concept\_code  
+concept_code  
 The code as it exists in its *source* vocabulary — e.g. SNOMED `59621000`. The bridge back to the source system.
 
 Standard concept  
@@ -993,7 +993,7 @@ A row in `concept_relationship` meaning "when you receive concept 1, store conce
 Ancestor / descendant  
 Positions in the *is-a* hierarchy. Ancestors are more general, descendants more specific. Every concept is its own ancestor at level 0.
 
-concept\_ancestor  
+concept_ancestor  
 The precomputed transitive closure of the hierarchy — every ancestor–descendant pair at every distance.
 
 Surrogate key  
@@ -1002,7 +1002,7 @@ An identifier you invent (`person_id = 1`) standing in for a source id you canno
 Numerator / denominator  
 Top and bottom of a rate: how many had the thing, over how many could have had it.
 
-observation\_period  
+observation_period  
 The window during which a person was observable. The denominator. Derived, never given.
 
 Cohort  
