@@ -23,3 +23,6 @@ results/
 .Rhistory
 .RData
 .Rproj.user/
+
+# Live FHIR server pulls (regenerate with scripts/, not committed)
+data/fhir/live/

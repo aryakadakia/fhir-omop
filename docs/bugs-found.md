@@ -284,6 +284,70 @@ than obeying it.
 
 ---
 
+## Found by pointing it at a live FHIR server
+
+Everything above was found against files on disk. Connecting to a real server
+(SMART Health IT sandbox, Smile CDR 2019.08, FHIR 4.0.0) surfaced a different
+class of problem in minutes.
+
+### 17. Relative references confirmed working
+
+`references.py` handles six reference forms, but Synthea files only ever emit
+`urn:uuid:`. The other five branches were written from the specification and had
+never met real data.
+
+A live server returns the relative form:
+
+```
+Synthea file:  "urn:uuid:5cbc121b-cd71-4428-b8b7-31e53eba8184"
+Live server:   "Patient/1a96f2e7-7ce0-4164-b3f6-4fdffeca00fb"
+```
+
+Verbatim strings from the server resolve correctly, including
+`Encounter.participant.individual` and `Encounter.serviceProvider`. Not a
+defect, recorded because an untested branch that turns out to work is worth
+knowing about as much as one that does not.
+
+### 18. Half a patient loaded, and every check passed
+
+`Patient/$everything` returns a paginated Bundle. The loader reads one file and
+stops at the first page.
+
+```
+server has:  78 Encounters · 207 Observations
+loaded:      35 Encounters · 104 Observations
+rejected: 0        36/36 checks: PASS
+```
+
+Roughly half the record, silently, with a completely clean report.
+
+This is the most complete illustration of the pattern running through this
+whole document. Every check here verifies that the rows present are well
+formed. **Nothing verifies that absent rows should have been present.** A
+quality suite cannot detect missing data, only malformed data, and no amount of
+adding checks changes that.
+
+### 19. Referenced resources are not in the bundle
+
+The same pull produced zero `provider` and zero `care_site` rows, and every
+`visit_occurrence.provider_id` was null, even though the mapping handles both
+correctly when the resources are present.
+
+`$everything` returns the patient's clinical data but not the Practitioners and
+Organizations that data references. The Encounters carry
+`Practitioner/79a13b7d-...` and `Organization/b0e04623-...`; neither resource is
+in the bundle.
+
+### What 18 and 19 actually mean
+
+Neither is an ETL defect. Both say the same thing: **the ETL is complete and the
+fetcher does not exist.** Reading FHIR from disk and reading it from a server
+are different problems, and only the first one is solved here. A fetch layer
+would need to follow `next` links to exhaustion and separately retrieve the
+resources that clinical data references.
+
+---
+
 ## Repository hygiene
 
 Not pipeline defects, but real and worth recording.
