@@ -1,3 +1,10 @@
+> Filed upstream as **[OHDSI/DatabaseConnector#340](https://github.com/OHDSI/DatabaseConnector/issues/340)**
+> on 2026-09-04. Found while running `scripts/run_dqd.R` against this project's
+> CDM, where one of the 2,533 Data Quality Dashboard checks reported an error
+> rather than a result. Kept here as the record of what was reported.
+
+---
+
 `DatabaseConnector::connectDuckdb()` runs `INSTALL icu` but never `LOAD icu`. Since `LOAD` is per-connection and `INSTALL` persists, the ICU extension ends up installed but unloaded on every connection, and functions that depend on it remain unavailable.
 
 ###### --- connection from DatabaseConnector: installed, not loaded ---
