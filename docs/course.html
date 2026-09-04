@@ -1170,8 +1170,29 @@ WHERE  <i>date_diff('year', op.observation_period_start_date,
 
     <p><strong>No patient-level data ever leaves any hospital.</strong> That is what makes multi-national observational research legally and ethically possible at all — and it only works because every site's data is in the same shape with the same concept ids. Every convention in this course exists to serve that.</p>
 
-    <h3>ATLAS — the tool you should look at next</h3>
-    <p>A web application over a CDM. You build concept sets by searching the vocabulary, assemble cohort definitions through a UI, and it generates the SQL. Worth exploring precisely because you have now written that SQL by hand and will recognise what it is doing.</p>
+    <h3>ATLAS — the tool most OHDSI work is actually done in</h3>
+    <p>A web application sitting over a CDM. You search the vocabulary to build concept sets, assemble cohort definitions through a UI, characterise a population, and run analyses — all without writing SQL, because ATLAS generates it for you.</p>
+
+    <p>There is a public instance running against a real CDM, no installation and no account:</p>
+
+    <p><a href="https://atlas-demo.ohdsi.org/">atlas-demo.ohdsi.org</a></p>
+
+    <p>Worth an hour, and worth it <em>specifically now</em>, having written the underlying SQL by hand. You will recognise what every screen is doing, which is a very different experience from meeting it cold.</p>
+
+    <h4>A route through the demo</h4>
+    <ol>
+      <li><strong>Search</strong> — type a condition name. You get concepts with their domain, class, standard flag and record counts in the underlying data. This is the <code>concept</code> table with a search box on it.</li>
+      <li><strong>Concept Sets</strong> — create one, add a concept, then tick <em>Descendants</em>. That checkbox is <code>concept_ancestor</code>. Click <em>Included Concepts</em> to see everything it just pulled in, which is the query from Module 05 with a UI on top.</li>
+      <li><strong>Cohort Definitions</strong> — build an entry event from your concept set, then add "with continuous observation of at least 365 days prior". Same two criteria as the cohort in Module 09.</li>
+      <li><strong>Export → SQL</strong> on that cohort. You will get the same shape of generated SQL that CirceR produces, because it is the same engine.</li>
+      <li><strong>Data Sources</strong> — someone else's CDM characterised: record counts per table, concept prevalence, age distributions. This is what Achilles produces, and it is what a site's data looks like before anyone asks a research question of it.</li>
+    </ol>
+
+    <div class="silent">
+      <span class="tag">Why this project used R instead</span>
+      <p>ATLAS needs a backend (WebAPI) that supports only PostgreSQL, SQL Server, Oracle, Redshift and Snowflake. Not DuckDB. Running it locally would mean migrating the CDM and a 4.25M-concept vocabulary to Postgres and standing up three Docker containers — which teaches deployment, not OMOP.</p>
+      <p>Capr and CirceR drive the same <code>circe-be</code> engine and emit the same cohort JSON, so the machinery is identical. The demo instance is the right way to see the interface; R is the right way to actually use the engine against a DuckDB CDM.</p>
+    </div>
 
     <h3>From Module 07's "not covered", what is actually worth learning</h3>
     <ul>
