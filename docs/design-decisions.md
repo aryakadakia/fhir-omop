@@ -1,8 +1,7 @@
 # Design decisions
 
-Why the mappings do what they do. Extracted from the README, which should
-answer "what is this and how do I run it" rather than "why is it shaped this
-way".
+Why the mappings do what they do. Extracted from the README, which answers
+"what is this and how do I run it" instead.
 
 Companion documents: `manual.html` for how to operate the pipeline,
 `course.html` for the underlying standards, `bugs-found.md` for what went
@@ -26,7 +25,7 @@ OMOP places in the Observation domain:
 
 Both are clinically reasonable things to send as a FHIR `Condition`. Both
 belong in `observation` under the CDM. Loading them into
-`condition_occurrence` fails silently — the rows insert, every foreign key
+`condition_occurrence` fails silently, the rows insert, every foreign key
 resolves, and prevalence queries return a wrong denominator with no error.
 
 This was caught by the `condition_concept_in_condition_domain` check rather
@@ -42,8 +41,8 @@ dropped:
 
 388 conditions in this corpus resolve to non-standard `Prediabetes`
 (`concept_id 40316773`) and must be redirected to its standard target. Used
-directly, those rows would never match a cohort definition — cohort
-definitions are written against standard concepts — so the patients would be
+directly, those rows would never match a cohort definition, cohort
+definitions are written against standard concepts, so the patients would be
 silently invisible rather than rejected.
 
 ## Three decisions worth reading
@@ -57,13 +56,13 @@ that no downstream analyst could detect.
 
 **2. Partial dates are not filled in.**
 FHIR `date` legally permits `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. CDM 5.4 requires
-`year_of_birth` and permits null month and day — which maps onto FHIR's
+`year_of_birth` and permits null month and day, which maps onto FHIR's
 precision model exactly. The common bug is defaulting to January 1st, which
 invents a birthday for every year-precision record.
 
 **3. Race and ethnicity are `NOT NULL` in the CDM, and often absent in reality.**
 Synthea emits US Core race/ethnicity extensions because it models a US
-population. **AU Core has no race extension at all** — Australian datasets
+population. **AU Core has no race extension at all**, Australian datasets
 record Indigenous status under a different model that does not map onto OMOP's
 race/ethnicity pair. This ETL sets both to 0 and preserves any source text,
 rather than inventing a category. A prevalence figure broken down by race in a

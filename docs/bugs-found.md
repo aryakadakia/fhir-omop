@@ -3,21 +3,19 @@
 A record of every defect found building this pipeline: what it was, how it
 surfaced, and what now stops it coming back.
 
-It exists because of a pattern that turned out to be the most important thing
-this project taught. **Almost none of these raised an error.** The rows
-inserted, the foreign keys resolved, the tests passed, and the numbers were
-quietly wrong. A pipeline like this is not made correct by the absence of
-exceptions; it is made correct by checks that can fail and by testing against
-data large enough to be honest.
+**Almost none of these raised an error.** The rows inserted, the foreign keys
+resolved, the tests passed, and the numbers were quietly wrong. A pipeline like
+this is not made correct by the absence of exceptions. It is made correct by
+checks that can fail, and by testing against data large enough to be honest.
 
-Ordered by how they were found, because the *finding* is the transferable part.
+They are ordered by how they were found, since the finding method is the part
+that transfers.
 
 ---
 
 ## Found by a data-quality check
 
-These are the ones that justify writing the check suite before trusting the
-mapping.
+These justify writing the check suite before trusting the mapping.
 
 ### 1. Condition domain routing — 862 rows in the wrong table
 
@@ -30,9 +28,9 @@ resource type that carried it. Both are perfectly reasonable things to send as
 a FHIR `Condition`; OMOP's classification is what the downstream tooling
 assumes.
 
-*Failure mode:* silent. Rows insert, keys resolve, no error. 516 rows added to
-the numerator of every pregnancy-related query and to a denominator nobody
-would think to check.
+*Failure mode:* silent. Rows insert, keys resolve, no error is raised. 516 rows
+were added to the numerator of every pregnancy-related query, and to a
+denominator nobody would think to check.
 
 *Caught by:* `condition_concept_in_condition_domain`.
 *Guarded by:* that check plus `TestDomainRouting` in `test_condition_mapping.py`.
@@ -42,7 +40,7 @@ would think to check.
 The same bug, one layer down, and invisible until the full vocabulary arrived.
 `measurement.py` sent anything that was not Measurement-domain into
 `observation`. Real LOINC also carries `Note` and `Procedure` concepts, which
-belong in `note` and `procedure_occurrence` — tables this ETL does not
+belong in `note` and `procedure_occurrence`, tables this ETL does not
 populate.
 
 *Fix:* the fact and its source concept are kept; the standard concept is
@@ -71,12 +69,12 @@ https://ex.org/fhir/Patient/1234   → the whole URL
 #contained-1                       → "contained-1"  (a false lookup key)
 ```
 
-All three are legal FHIR. The code worked perfectly against Synthea and would
-have silently resolved nothing against a live Epic or Cerner server — the
+All three are legal FHIR. The code worked correctly against Synthea and would
+have silently resolved nothing against a live Epic or Cerner server. This is the
 classic bug that only appears against a different data source.
 
 *Failure mode:* loud but wrong. Rows were rejected as orphans and reported, so
-nothing corrupted — but valid data would have been discarded wholesale.
+nothing was corrupted, but valid data would have been discarded wholesale.
 
 *Fix:* one implementation in `references.py`, covering relative, versioned,
 absolute, `urn:uuid`, `urn:oid` and bare-id forms. Contained and
@@ -87,8 +85,8 @@ identifier-only references return `None` rather than a false key.
 ### 4. Drug mapping had no domain guard
 
 `Condition` and `Observation` both checked the resolved concept's domain;
-`drug.py` did not. The table happened to be clean, by luck rather than design
-— RxNorm does not resolve exclusively into the Drug domain.
+`drug.py` did not. The table happened to be clean by luck rather than design, since RxNorm does
+not resolve exclusively into the Drug domain.
 
 *Guarded by:* `drug_concept_in_drug_domain` plus
 `test_non_drug_domain_is_refused`.
@@ -104,7 +102,7 @@ be invisible to every cohort definition without being an error.
 ### 6. Four mapping modules had no unit tests
 
 A coverage audit found `visit.py`, `drug.py`, `measurement.py` and
-`observation_period.py` untested — 321,082 rows, the majority of the database,
+`observation_period.py` untested, 321,082 rows, the majority of the database,
 including the module where bug 2 had just been fixed. That fix was guarded only
 by an integration-level check.
 
@@ -114,7 +112,7 @@ by an integration-level check.
 
 ## Found by testing against real data
 
-The 32k-concept development vocabulary was convenient and dishonest. Both of
+The 32k-concept development vocabulary was convenient and misleading. Both of
 these appeared within minutes of loading the real one.
 
 ### 7. Gender concepts written without verifying they exist
@@ -134,7 +132,7 @@ would reveal it.
 
 15,013 immunizations mapped at 100% unmapped because the vocabulary contained
 no CVX concepts. Found by scanning the corpus for every code system in use
-rather than reasoning about which ones the pipeline consumed — the empirical
+rather than reasoning about which ones the pipeline consumed, the empirical
 question rather than the remembered one.
 
 *Fix:* CVX added to the bundle; all 15,013 now resolve.
@@ -146,7 +144,7 @@ question rather than the remembered one.
 ### 9. Athena `concept_code` type inference
 
 DuckDB infers column types from content. SNOMED codes are all digits, so a
-SNOMED-heavy `CONCEPT.csv` can infer `concept_code` as `BIGINT` — and every
+SNOMED-heavy `CONCEPT.csv` can infer `concept_code` as `BIGINT`, and every
 lookup, which passes a Python string, then matches nothing.
 
 *Failure mode:* total and silent. Zero rows mapped, no error, on a pipeline
@@ -160,7 +158,7 @@ anything but text.
 
 Resolving a quarter of a million resources against ~1,000 distinct codes did
 two SQL round-trips per row. Adding memoisation took the full corpus from
-unbounded to under eight minutes — but a module-level cache would serve stale
+unbounded to under eight minutes, but a module-level cache would serve stale
 resolutions if a second load used a different vocabulary.
 
 *Fix:* `clear_caches()` on every load and in an autouse test fixture.
@@ -181,9 +179,8 @@ database that does not exist.
 
 The standardised OHDSI check suite, run once the CDM schema was complete.
 2,533 checks against our 33. It found four defects the hand-written suite
-missed, and the pattern in them is instructive: **all four sit in categories
-the hand-written checks did not think to cover at all**, rather than being
-cases the existing checks got wrong.
+missed. All four sit in categories the hand-written checks did not cover at
+all, rather than being cases the existing checks got wrong.
 
 ### 12. Three non-standard type concepts
 
@@ -196,16 +193,15 @@ cases the existing checks got wrong.
 Every `*_concept_id` in the CDM was checked for standardness by
 `all_event_concepts_are_standard`. No `*_type_concept_id` was. A non-standard
 type concept is invisible to any analysis filtering on it, in exactly the way a
-non-standard condition concept is invisible to a cohort definition — the
+non-standard condition concept is invisible to a cohort definition, the
 failure this project documented at length and then committed itself.
 
-Worth noting which one was correct: `32817 EHR`, the only type concept that had
-been verified against the vocabulary before use. The three taken from memory
-were all wrong.
+One was correct: `32817 EHR`, the only type concept that had been verified
+against the vocabulary before use. The three taken from memory were all wrong.
 
 *Fix:* `32838 EHR prescription`, `32817 EHR`, and `32882 Standard algorithm
-from EHR` — the last semantically better than what it replaced, since an
-inferred observation period genuinely is algorithm-derived.
+from EHR`. The last is semantically better than what it replaced, since an
+inferred observation period is algorithm-derived.
 
 *Guarded by:* `all_type_concepts_are_standard`, across all six type fields.
 
@@ -221,8 +217,8 @@ COALESCE(CAST(BIRTH_DATETIME AS DATE),
 ```
 
 That manufactures false "event before birth" findings for anyone born in the
-second half of a year — 48 of them here. Not wrong data; discarded data that
-forces every downstream consumer to guess.
+second half of a year, 48 of them here. The data was not wrong, it was
+discarded, which forces every downstream consumer to guess.
 
 *Fix:* populated at full year-month-day precision, still null at partial
 precision, because a guessed birth datetime is worse than an absent one.
@@ -246,7 +242,7 @@ SQL works in the DuckDB CLI, which autoloads extensions.
 
 DatabaseConnector `INSTALL`s ICU on connect but does not `LOAD` it, and LOAD
 is per-session. One check in 2,533, on a metadata field, so not worth working
-around locally — but it is a small, well-scoped upstream contribution if
+around locally, but it is a small, well-scoped upstream contribution if
 anyone wants one.
 
 ### 15. The dashboard renders empty when given a relative path
@@ -257,7 +253,7 @@ app folder. The app reads the path afterwards, so a relative path resolves
 against the package directory rather than yours.
 
 The JSON parse then fails and the dashboard renders its navigation shell with
-every panel empty — no error, no warning, nothing in the console.
+every panel empty, no error, no warning, nothing in the console.
 
 Reproduced from a different working directory: relative fails with a JSON
 lexical error, absolute returns all 2,533 rows.
@@ -267,15 +263,15 @@ lexical error, absolute returns all 2,533 rows.
 ### 16. A path bug in the DQD runner itself
 
 `csvFile` is resolved relative to `outputFolder`, so passing a full path
-produced `results/dqd/results/dqd/...` and the CSV write failed — with a
+produced `results/dqd/results/dqd/...` and the CSV write failed, with a
 warning, not an error.
 
 ---
 
 ## What the Data Quality Dashboard flagged that was NOT a defect
 
-Recorded because reading a check suite's output critically is the skill, not
-obeying it.
+Recorded because reading a check suite's output critically is the skill, rather
+than obeying it.
 
 - **Six `plausibleValueLow` date failures.** DQD's default threshold is
   `1950-01-01`. Synthea generates full lifetimes, so patients born in the
@@ -303,7 +299,7 @@ Not pipeline defects, but real and worth recording.
 
 ## Known limitations — not bugs, and not fixed
 
-Recorded so nobody mistakes them for defects or for correctness.
+Recorded so nobody mistakes them for defects, or for correctness.
 
 - **`race_concept_id` and `ethnicity_concept_id` are 100% unmapped, by
   decision.** CDM 5.4 marks both `NOT NULL`, but AU Core has no race extension
@@ -313,7 +309,7 @@ Recorded so nobody mistakes them for defects or for correctness.
   population.
 - **`drug_exposure_end_date` equals its start.** Synthea supplies no dispense
   duration. This understates exposure and is why chronic medications form no
-  long drug eras — simvastatin collapses 2,363 exposures into 2,360 eras,
+  long drug eras, simvastatin collapses 2,363 exposures into 2,360 eras,
   while chemotherapy, genuinely administered in clusters, collapses nearly 2:1.
   Era quality depends entirely on real `days_supply`.
 - **`gap_days` overstates gaps when exposures overlap.** Computed as era span
