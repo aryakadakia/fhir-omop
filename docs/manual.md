@@ -362,9 +362,48 @@ R packages — only needed for quality checks and cohorts
     Rscript -e 'remotes::install_github(c("OHDSI/DataQualityDashboard",
                                           "OHDSI/Capr"), upgrade="never")'
 
-### 1 · Load the vocabulary
+### Prerequisites
 
-Requires a free [Athena](https://athena.ohdsi.org/) account. Select SNOMED, LOINC, RxNorm, RxNorm Extension, ATC, CVX, ICD10, OMOP Extension, Gender, Race and Ethnicity. Skip CPT4 — it needs a separate UMLS licence and an extra tool.
+`uv` (or any Python 3.13 environment manager), and for the optional steps, R 4.4+
+and the DuckDB CLI. Nothing else.
+
+### 1 · Get the source data
+
+The Synthea sample is not in the repository — it is 1.3 GB extracted and freely
+redistributable from the project itself.
+
+    curl -L -o synthea.zip \
+      https://synthetichealth.github.io/synthea-sample-data/downloads/synthea_sample_data_fhir_r4_sep2019.zip
+    unzip -q synthea.zip -d data/fhir/bulk
+
+That gives 1,180 patient bundles in `data/fhir/bulk/fhir/`. Skip this if you
+only want the committed one-patient example.
+
+### 2 · Load the vocabulary
+
+Requires a free [Athena](https://athena.ohdsi.org/) account. Past downloads stay
+available at
+[athena.ohdsi.org/vocabulary/download-history](https://athena.ohdsi.org/vocabulary/download-history),
+so a bundle requested once can be re-downloaded later without reselecting.
+
+Select these eleven, which are what this pipeline resolves against:
+
+| Vocabulary | Used for |
+|---|---|
+| SNOMED | conditions and procedures |
+| LOINC | measurements and observations |
+| RxNorm | drugs |
+| RxNorm Extension | non-US drug concepts |
+| ATC | drug classification, needed for ingredient rollup |
+| CVX | vaccines |
+| ICD10 | not in Synthea, but shows cross-vocabulary `Maps to` at work |
+| OMOP Extension | OHDSI's own gap-filling concepts |
+| Gender, Race, Ethnicity | `person` demographics |
+
+UCUM and the CDM metadata vocabularies are mandatory and arrive regardless.
+
+**Skip CPT4.** It is the only vocabulary needing a UMLS licence and a separate
+`cpt4.jar` step, and nothing here uses it.
 
 \~40 seconds · produces data/omop/vocab.duckdb (3.2 GB)
 
@@ -374,17 +413,18 @@ To add vocabularies you forgot, without rebuilding the whole thing:
 
     python scripts/load_athena_vocab.py --zip ~/Downloads/topup.zip --merge
 
-### 2 · Run the conversion
+### 3 · Run the conversion
 
 \~8 minutes · produces data/omop/omop.duckdb (2.6 GB)
 
     python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb
 
-To try it quickly on the two committed sample files instead:
+To skip step 1 and run on the committed one-patient example instead, which
+needs no downloads at all:
 
-    python scripts/run_etl.py --fhir data/fhir/fixtures
+    python scripts/run_etl.py --fhir data/fhir/example
 
-### 2b · Or pull from a live FHIR server
+### 3b · Or pull from a live FHIR server
 
 The ETL reads files. Two scripts produce those files from a server instead, and they solve different problems.
 
@@ -408,13 +448,13 @@ The REST API hands you one patient per request. That is correct for an app and h
 
 Bulk Data is a different protocol: you ask once, the server works in the background, and you download newline-delimited JSON files split by resource type. It is the realistic path from a real EHR to a CDM.
 
-### 3 · Run the tests
+### 4 · Run the tests
 
 under 2 seconds · needs no database
 
     pytest
 
-### 4 · Run the standardised quality checks
+### 5 · Run the standardised quality checks
 
 \~30 seconds · produces results/dqd/
 
@@ -423,10 +463,17 @@ under 2 seconds · needs no database
 
 Then open the dashboard in R. **The path must be absolute** — a relative one silently renders an empty page:
 
+    # from an R session started in the repository root
     DataQualityDashboard::viewDqDashboard(
-      "/Users/aryakadakia/Desktop/fhir_omop/results/dqd/dqd-results.json")
+      normalizePath("results/dqd/dqd-results.json"))
 
-### 5 · Generate cohorts
+`normalizePath()` is doing the work here: `viewDqDashboard` stores the path and
+then Shiny changes the working directory before reading it, so a relative path
+resolves inside the R package, the JSON parse fails, and the dashboard renders
+an empty shell with no error at all. `scripts/run_dqd.R` prints the absolute
+path on completion for the same reason.
+
+### 6 · Generate cohorts
 
 seconds · produces cohorts/\*.json, cohorts/\*.sql, and a cohort table
 

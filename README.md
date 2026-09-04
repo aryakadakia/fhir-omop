@@ -48,16 +48,68 @@ python scripts/run_etl.py --fhir data/fhir/example
 pytest
 ```
 
-That runs against one committed sample patient and needs no vocabulary
-download. Output lands in `data/omop/omop.duckdb`, readable by any DuckDB
-client.
+That runs against one committed sample patient, needs no downloads, and
+finishes in seconds. Output lands in `data/omop/omop.duckdb`, readable by any
+DuckDB client.
 
-For a real run, load a vocabulary first and point the ETL at bulk data:
+## Reproducing the full results
+
+The figures above come from 1,180 patients and a 4.25M-concept vocabulary,
+neither of which is in this repository: the first is 1.3 GB of freely
+redistributable sample data, and the second is licensed and must be requested
+under your own account. Both are a download away.
+
+**1. Source data.** The Synthea FHIR R4 sample:
+
+```bash
+curl -L -o synthea.zip https://synthetichealth.github.io/synthea-sample-data/downloads/synthea_sample_data_fhir_r4_sep2019.zip
+unzip -q synthea.zip -d data/fhir/bulk
+```
+
+**2. Vocabulary.** Requires a free [Athena](https://athena.ohdsi.org/) account.
+Select **SNOMED, LOINC, RxNorm, RxNorm Extension, ATC, CVX, ICD10, OMOP
+Extension, Gender, Race, Ethnicity** — skip CPT4, which needs a UMLS licence and
+an extra tool. Past requests stay downloadable at
+[athena.ohdsi.org/vocabulary/download-history](https://athena.ohdsi.org/vocabulary/download-history).
 
 ```bash
 python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip
+```
+
+**3. Run it.** About nine minutes.
+
+```bash
 python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb
 ```
+
+**4. Optional, needing R 4.4+:**
+
+```bash
+Rscript -e 'install.packages(c("DatabaseConnector","duckdb","CirceR","CohortGenerator","remotes"))'
+Rscript -e 'remotes::install_github(c("OHDSI/DataQualityDashboard","OHDSI/Capr"), upgrade="never")'
+
+Rscript scripts/make_thresholds.R   # threshold overrides, with reasons
+Rscript scripts/run_dqd.R           # 2,533 OHDSI quality checks
+Rscript scripts/build_cohorts.R     # define and generate cohorts
+```
+
+To view the quality dashboard, from an R session in the repository root:
+
+```r
+DataQualityDashboard::viewDqDashboard(normalizePath("results/dqd/dqd-results.json"))
+```
+
+The path must be absolute. `viewDqDashboard` stores it and then Shiny changes
+the working directory before reading it, so a relative path renders an empty
+page with no error.
+
+Two things worth knowing: `load_athena_vocab.py --merge` tops up an existing
+vocabulary with one you missed rather than rebuilding several gigabytes, and
+the ETL runs without a vocabulary at all — codes simply resolve to
+`concept_id 0` and the unmapped rates report it.
+
+[`docs/manual.md`](docs/manual.md) covers all of this in more detail, including
+what each command produces and how to read the output.
 
 To pull from a live FHIR server instead of files:
 
@@ -79,19 +131,6 @@ Rscript scripts/run_dqd.R          # OHDSI Data Quality Dashboard, 2,533 checks
 Rscript scripts/build_cohorts.R    # define and generate cohorts
 ```
 
-## Vocabulary
-
-The ETL needs an OMOP `concept` table to resolve codes against. The full
-vocabulary is distributed by [OHDSI Athena](https://athena.ohdsi.org/), which
-requires a free account. Select SNOMED, LOINC, RxNorm, RxNorm Extension, ATC,
-CVX, ICD10, OMOP Extension, Gender, Race and Ethnicity.
-
-`load_athena_vocab.py --merge` tops up an existing vocabulary with one you
-missed, rather than rebuilding several gigabytes.
-
-Without a vocabulary the ETL still runs; codes resolve to `concept_id 0` and
-the unmapped rates report it.
-
 ## What went wrong, and how it was found
 
 [`docs/bugs-found.md`](docs/bugs-found.md) records every defect found building
@@ -102,14 +141,23 @@ lists the known limitations that are not defects.
 Almost none of these raised an error. The rows inserted, the foreign keys
 resolved, the tests passed, and the numbers were quietly wrong.
 
-## Data
+## What is and is not in this repository
 
-`data/fhir/example/` holds one patient with a complete clinical trail, used by
-the quick start. `data/fhir/fixtures/` holds deliberately awkward resources
-that pin edge-case behaviour. Bulk input under `data/fhir/bulk/` and the
-generated databases are gitignored. Fetch the
-[Synthea FHIR R4 sample](https://synthetichealth.github.io/synthea-sample-data/)
-to reproduce the figures above.
+Committed: all code, tests and documentation, the generated cohort definitions,
+one complete example patient (`data/fhir/example/`) and a set of deliberately
+awkward resources that pin edge-case behaviour (`data/fhir/fixtures/`).
+
+Not committed, and why:
+
+| | Why not |
+|---|---|
+| Synthea bulk data, 1.3 GB | Freely re-downloadable, see above |
+| Athena vocabulary, 3.2 GB | Licensed. SNOMED in particular cannot be redistributed; request your own under your own account |
+| `data/omop/*.duckdb`, 5.8 GB | Generated. Two commands rebuild them |
+| `.venv`, `results/` | Generated |
+
+Nothing needed to reproduce the results is missing; everything above is either
+a download or a command.
 
 ## Scope
 
