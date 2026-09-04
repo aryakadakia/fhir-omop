@@ -126,8 +126,10 @@ a hand-written and the community-standard check suite run over the output.
 - [`docs/design-decisions.md`](docs/design-decisions.md) — why the mappings are
   shaped the way they are
 - [`docs/bugs-found.md`](docs/bugs-found.md) — every defect, and how it surfaced
-- [`docs/manual.html`](docs/manual.html) — operating the pipeline
-- [`docs/course.html`](docs/course.html) — the underlying standards
+- [`docs/manual.md`](docs/manual.md) — operating the pipeline: every file, every
+  command, how to read the output, how to extend it, troubleshooting
+- [`docs/course.md`](docs/course.md) — the underlying standards: what FHIR and
+  OMOP each are, how the vocabulary works, why any of it matters
 - [`docs/upstream-issue-duckdb-icu-not-loaded.md`](docs/upstream-issue-duckdb-icu-not-loaded.md)
   — a DatabaseConnector defect found while running the quality checks, reported
   upstream
