@@ -13,6 +13,9 @@ Athena vocabulary, with `observation_period`, `drug_era` and `condition_era`
 derived afterwards. Every CDM row is traceable back to the FHIR resource that
 produced it.
 
+Input can be files on disk, a live FHIR server pulled patient by patient, or a
+whole population via Bulk Data export.
+
 Run against the Synthea FHIR R4 sample: 1,180 synthetic patients, 414,000
 resources, no real patient data.
 
@@ -55,6 +58,19 @@ For a real run, load a vocabulary first and point the ETL at bulk data:
 python scripts/load_athena_vocab.py --zip ~/Downloads/vocabulary_download.zip
 python scripts/run_etl.py --fhir data/fhir/bulk --vocab data/omop/vocab.duckdb
 ```
+
+To pull from a live FHIR server instead of files:
+
+```bash
+# one patient at a time, verified against the server's reported totals
+python scripts/fetch_fhir.py --server https://launch.smarthealthit.org/v/r4/fhir --patients 5
+
+# or a whole population via FHIR Bulk Data
+python scripts/bulk_export.py --server https://bulk-data.smarthealthit.org/fhir
+```
+
+Both write files the ETL reads directly. Bundles, bare resources and
+newline-delimited JSON are all accepted.
 
 Optional, and requiring R:
 

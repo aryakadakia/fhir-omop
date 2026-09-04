@@ -320,6 +320,8 @@ a hospital  <b>HTN-1</b>       "HTN, essential"</pre>
     <div class="grp"><span>Scripts — the things you actually run</span></div>
     <div><span class="f">scripts/run_etl.py</span><span class="d">Runs the conversion and prints a report.</span></div>
     <div><span class="f">scripts/load_athena_vocab.py</span><span class="d">Loads an Athena vocabulary download. <code>--merge</code> tops up an existing one without rebuilding it.</span></div>
+    <div><span class="f">scripts/fetch_fhir.py</span><span class="d">Pulls patients from a live FHIR server. Pages to exhaustion, verifies each count against the server's reported total, and fetches the practitioners and organisations that clinical data references but search results omit.</span></div>
+    <div><span class="f">scripts/bulk_export.py</span><span class="d">Exports a whole population via FHIR Bulk Data — the asynchronous kickoff, poll and download protocol. Negotiates resource types against the server's CapabilityStatement first.</span></div>
     <div><span class="f">scripts/run_dqd.R</span><span class="d">Runs the OHDSI Data Quality Dashboard — 2,533 standardised checks.</span></div>
     <div><span class="f">scripts/make_thresholds.R</span><span class="d">Generates a threshold override file from DQD's defaults, with the reason recorded.</span></div>
     <div><span class="f">scripts/build_cohorts.R</span><span class="d">Defines cohorts in R, compiles them to SQL, generates them against the CDM.</span></div>
@@ -343,6 +345,12 @@ a hospital  <b>HTN-1</b>       "HTN, essential"</pre>
     <p><strong>ETL</strong> stands for Extract, Transform, Load — read from the source, reshape, write to the target. The reason this one runs in passes rather than straight through is that clinical records point at each other.</p>
 
     <p>A diagnosis says "this belongs to patient <code>urn:uuid:5cbc121b…</code>". To write it, you need that patient's row to already exist and to know what number you gave them. So people must be loaded before diagnoses. The same applies to visits, and to the doctors and hospitals that everything else references.</p>
+
+    <div class="warn">
+      <span class="tag">Each pass reads every file before the next begins</span>
+      <p>This matters more than it sounds. An earlier version nested all the passes inside one loop over files, which quietly assumes <strong>each file is self-contained</strong>.</p>
+      <p>That held for Synthea, where every file is one patient's complete bundle, so a <code>Patient</code> is always read before the <code>Encounter</code> referencing it. A bulk export splits resources <em>by type</em>, so <code>Condition.ndjson</code> is processed before <code>Patient.ndjson</code> exists — and every clinical row was rejected while the run still reported success.</p>
+    </div>
 
     <div class="pipeline">
       <div class="stage"><div class="pass">pass 0</div><div><h4>Doctors, hospitals, addresses</h4><p>Practitioner → <code>provider</code>, Organization → <code>care_site</code>, their addresses → <code>location</code>. <strong>Deduplicated across the whole corpus</strong>: the same doctor appears in a file for every patient they treated, so 2,980 records become 1,036 rows.</p></div></div>
@@ -555,6 +563,29 @@ Rscript -e 'remotes::install_github(c("OHDSI/DataQualityDashboard",
 <pre>python scripts/run_etl.py --fhir data/fhir/fixtures</pre>
     </div>
 
+    <h3>2b · Or pull from a live FHIR server</h3>
+    <p>The ETL reads files. Two scripts produce those files from a server instead, and they solve different problems.</p>
+
+    <p><strong>One patient at a time</strong>, which is what an application does:</p>
+    <div class="code">
+      <div class="cap">verifies every count against the server's reported total</div>
+<pre>python scripts/fetch_fhir.py \
+  --server https://launch.smarthealthit.org/v/r4/fhir --patients 5</pre>
+    </div>
+
+    <p><strong>A whole population</strong>, which is what building a CDM needs:</p>
+    <div class="code">
+      <div class="cap">FHIR Bulk Data: async kickoff, poll, download</div>
+<pre>python scripts/bulk_export.py \
+  --server https://bulk-data.smarthealthit.org/fhir</pre>
+    </div>
+
+    <div class="note">
+      <span class="tag">Why two</span>
+      <p>The REST API hands you one patient per request. That is correct for an app and hopeless for a warehouse — a hundred thousand patients is a hundred thousand round trips.</p>
+      <p>Bulk Data is a different protocol: you ask once, the server works in the background, and you download newline-delimited JSON files split by resource type. It is the realistic path from a real EHR to a CDM.</p>
+    </div>
+
     <h3>3 · Run the tests</h3>
     <div class="code">
       <div class="cap">under 2 seconds · needs no database</div>
@@ -602,6 +633,9 @@ Rscript scripts/run_dqd.R</pre>
   </div>
 
   <div class="body">
+    <h3>Three input shapes, one reader</h3>
+    <p>The ETL accepts a Bundle (a Synthea file or a search result), a bare single resource, or newline-delimited JSON (what Bulk Data returns, since a population export is far too large for one JSON document). All three are flattened to a list of resources before any mapping happens, so nothing downstream needs to know where the data came from.</p>
+
     <h3>Block 1 — what came in and what went out</h3>
     <div class="code">
 <pre>FHIR resources read:

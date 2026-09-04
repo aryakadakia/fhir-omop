@@ -384,6 +384,65 @@ recreate exactly the problem in finding 18.
 
 ---
 
+## Found by bulk export
+
+Per-patient fetching is what an application does. Building a CDM needs the
+opposite: everybody, once. That is a different protocol (FHIR Bulk Data), and
+it produces a differently shaped payload -- newline-delimited JSON split by
+resource type rather than one bundle per patient. Pointing the ETL at that
+found the most serious structural defect in the project.
+
+### 21. Every clinical row rejected, and the run reported success
+
+A bulk export of 100 patients produced:
+
+```
+Encounters read            3,697        visit_occurrence written      0
+Conditions read              639        condition_occurrence written  0
+MedicationRequests read    2,386        drug_exposure written         0
+rejected: 23,075                        checks passing: 35 of 36
+```
+
+The cause was structural. Passes 1, 2 and 3 were nested inside a single loop
+over files:
+
+```python
+for path in files:
+    doc = load(path)
+    for patient in resources(doc, "Patient"):    ...   # pass 1
+    for encounter in resources(doc, "Encounter"): ...  # pass 2
+```
+
+That quietly assumes **each file is self-contained**. It held perfectly for
+Synthea, where every file is one patient's complete bundle, so a `Patient` is
+always read before the `Encounter` that references it. A bulk export splits
+resources by TYPE, so `Condition.ndjson` and `Encounter.ndjson` are processed
+before `Patient.ndjson` exists, against an empty index.
+
+*Failure mode:* loud but ignorable. Rejections were counted and printed, so
+nothing was corrupted or hidden. But no check FAILED -- a quality suite
+inspects the rows that exist and has nothing to say about a table being empty.
+A run that rejects 23,075 of 23,707 resources should not be able to report
+"OK".
+
+*Fix:* each pass now loops over every file before the next begins. That is
+correct regardless of source, and it makes the ETL genuinely format-agnostic
+rather than accidentally compatible with one dataset's shape. 23,075
+rejections became 0.
+
+### 22. One unsupported type rejects the entire export
+
+Bulk export is all-or-nothing on type validity. Requesting twelve resource
+types from a server that lacks `MedicationAdministration` rejected the whole
+request, and the error named only the first offender -- so the types a server
+lacks are discovered one round-trip at a time.
+
+*Fix:* read the `CapabilityStatement` first and request only what the server
+declares. The same "ask before assuming" habit the course recommends, here
+enforced by a hard failure rather than good manners.
+
+---
+
 ## Repository hygiene
 
 Not pipeline defects, but real and worth recording.

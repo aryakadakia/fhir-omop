@@ -1124,7 +1124,14 @@ WHERE  <i>date_diff('year', op.observation_period_start_date,
     <h3>Bulk FHIR — population-scale export</h3>
     <p>The REST API hands you one patient at a time, which is hopeless for building a warehouse. Bulk Data (often written <code>$export</code>) is an asynchronous operation: you ask for a whole population, the server works in the background, and you poll until it hands you a set of newline-delimited JSON files, one per resource type.</p>
 
-    <p><strong>This is the realistic starting point for an OMOP build from a live EHR.</strong> The pipeline we wrote consumes Synthea files; pointed at a Bulk export it would do the same job against real data.</p>
+    <p><strong>This is the realistic starting point for an OMOP build from a live EHR.</strong></p>
+
+    <div class="silent">
+      <span class="tag">What this exposed when actually done</span>
+      <p>Running the pipeline against a real bulk export rejected <strong>23,075 of 23,707 resources</strong> — every clinical row — and still reported a successful run with 35 of 36 checks passing.</p>
+      <p>The passes were nested inside one loop over files, which assumes each file is self-contained. True of a Synthea per-patient bundle; false of a bulk export, which splits resources by <em>type</em>, so conditions were processed before any patient existed.</p>
+      <p>The check suite could not object, because it inspects rows that exist and has nothing to say about a table being empty. This is the same lesson as the rest of the course arriving in its most extreme form.</p>
+    </div>
 
     <h3>CDS Hooks — decision support at the point of care</h3>
     <p>A different shape entirely: instead of your app being opened, the EHR calls <em>you</em>. At defined moments — <code>patient-view</code>, <code>order-sign</code>, <code>medication-prescribe</code> — it posts context to your service, which may return "cards": a warning, a suggestion, or a link. This is how a risk model actually reaches a clinician rather than sitting in a dashboard nobody opens.</p>

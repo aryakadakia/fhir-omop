@@ -114,14 +114,46 @@ class Writer:
             self.flush(table)
 
 
-def iter_resources(doc: dict, resource_type: str):
+def load_resources(path: Path) -> list[dict]:
+    """Read one file into a flat list of FHIR resources.
+
+    Three shapes arrive depending on where the data came from:
+
+      Bundle          a search result or a Synthea per-patient file
+      bare resource   a single resource fetched by id
+      .ndjson         one resource per line, no envelope -- what Bulk Data
+                      returns, since a population export is too large to hold
+                      in one JSON document
+
+    Flattening them here means every pass downstream works the same way
+    regardless of source.
+    """
+    if path.suffix == ".ndjson":
+        out = []
+        with path.open() as f:
+            for n, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    # One malformed line should not discard the file, but it
+                    # must be visible: silently skipping data is the failure
+                    # this pipeline documents most often.
+                    print(f"  ! {path.name} line {n}: {e}; line skipped")
+        return out
+
+    doc = json.loads(path.read_text())
     if doc.get("resourceType") == "Bundle":
-        for entry in doc.get("entry", []):
-            resource = entry.get("resource") or {}
-            if resource.get("resourceType") == resource_type:
-                yield resource
-    elif doc.get("resourceType") == resource_type:
-        yield doc
+        return [e.get("resource") or {} for e in doc.get("entry", [])]
+    return [doc]
+
+
+def iter_resources(resources: list[dict], resource_type: str):
+    for resource in resources:
+        if resource.get("resourceType") == resource_type:
+            yield resource
 
 
 def _has_table(con, name: str) -> bool:
@@ -177,7 +209,7 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
 
     report = LoadReport()
     writer = Writer(con)
-    files = sorted(fhir_dir.rglob("*.json"))
+    files = sorted(list(fhir_dir.rglob("*.json")) + list(fhir_dir.rglob("*.ndjson")))
     report.bundles = len(files)
 
     # Parsing 1.3 GB of JSON twice is the dominant cost, so each bundle is read
@@ -212,7 +244,7 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
         return location_index[key]
 
     for path in files:
-        doc = json.loads(path.read_text())
+        doc = load_resources(path)
 
         for org in iter_resources(doc, "Organization"):
             report.seen["Organization"] += 1
@@ -250,8 +282,13 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
     report.loaded["care_site"] = ids["care_site"]
     report.loaded["location"] = ids["location"]
 
+    # Each pass loops over every file before the next begins. Nesting them
+    # inside one file loop only works if each file is self-contained -- true of
+    # a Synthea per-patient bundle, false of a bulk export, which splits
+    # resources BY TYPE across files. With Condition.ndjson read before
+    # Patient.ndjson, every condition resolves against an empty index.
     for path in files:
-        doc = json.loads(path.read_text())
+        doc = load_resources(path)
 
         # ---- pass 1: person ------------------------------------------------
         for patient in iter_resources(doc, "Patient"):
@@ -266,7 +303,11 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
             writer.add("_etl_provenance",
                        ("person", pid, path.name, "Patient", mapped.person_source_value))
             report.issues.update(mapped.issues)
-        report.loaded["person"] = ids["person"]
+    report.loaded["person"] = ids["person"]
+    writer.flush_all()
+
+    for path in files:
+        doc = load_resources(path)
 
         # ---- pass 2: visits ------------------------------------------------
         for encounter in iter_resources(doc, "Encounter"):
@@ -292,6 +333,11 @@ def load(fhir_dir: Path, out_db: Path, vocab_db: Path | None = None) -> LoadRepo
             writer.add("_etl_provenance",
                        ("visit_occurrence", vid, path.name, "Encounter", mapped.source_id))
             report.issues.update(mapped.issues)
+
+    writer.flush_all()
+
+    for path in files:
+        doc = load_resources(path)
 
         # ---- pass 3a: conditions -------------------------------------------
         for condition in iter_resources(doc, "Condition"):
